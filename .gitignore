@@ -1,0 +1,8 @@
+**.direnv/
+**.elc
+.DS_Store
+***autoloads.el
+**trash
+**~
+**.~undo-tree
+/doc/*.info
