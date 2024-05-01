@@ -143,12 +143,13 @@ a newline, for when vertical lines should be preserved."
       (overlay-put overlay 'invisible t))
     (overlay-put overlay 'moc t)))
 
-(defun moc--hide-pattern (regex)
+(defun moc--hide-pattern (regex &optional extra-chars)
+  "EXTRA-CHARS is for patterns that don't include their newline."
   (save-excursion
     (goto-char (point-min))
     (while (re-search-forward regex nil t)
       (let ((overlay (make-overlay (match-beginning 0)
-                                   (match-end 0))))
+                                   (+ (or extra-chars 0) (match-end 0)))))
         (push overlay moc--overlays)
         (overlay-put overlay 'invisible t)
         (overlay-put overlay 'moc t)))))
@@ -190,7 +191,7 @@ content you want to display."
 
     ;; Affiliated keywords need a regex approach
     (when (member 'keyword moc-hide-element-types)
-      (moc--hide-pattern org-keyword-regexp))
+      (moc--hide-pattern org-keyword-regexp 1))
 
     (when moc-hide-block-header-and-footer
       (moc--hide-pattern "^[ 	]*#\\+begin_[a-z]+.*\n")
