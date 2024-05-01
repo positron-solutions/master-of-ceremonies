@@ -7,7 +7,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1"))
 ;; Homepage: http://github.com/positron-solutions/master-of-ceremonies
-;;
+
 ;;; License:
 
 ;; Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -290,7 +290,6 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
 
 ;; only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--maintain-margins ()
-  (message "moc maintain margins")
   (when moc--focus-margin-left
     (set-window-margins (selected-window)
                         moc--focus-margin-left
@@ -337,8 +336,11 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
     (insert (propertize text
                         'line-prefix nil
                         'wrap-prefix nil))
+
+    ;; TODO this is insufficient and I had to use face remapping for org blocks.
     (add-face-text-property (point-min) (point-max)
                             '(:background nil))
+
     (let* ((h (window-pixel-height))
            (w (window-pixel-width))
            (text-size (window-text-pixel-size))
