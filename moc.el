@@ -4,7 +4,7 @@
 
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
-;; Version: 0.1.0
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "29.1"))
 ;; Homepage: http://github.com/positron-solutions/master-of-ceremonies
 
@@ -171,6 +171,8 @@ See `moc-present-fullscreen'.")
 (defvar-local moc--focus-margin-right nil)
 (defvar moc--focus-old-window-config nil)
 
+;; * Hiding with overlays
+
 ;; TODO use keep-lines logic from macro-slides
 (defun moc-hide (element &optional display)
   "Display ELEMENT with a zero-length overlay.
@@ -251,6 +253,8 @@ large org documents."
         (t
          (mapc #'delete-overlay moc--overlays))))
 
+;; * Notes frame
+
 ;; TODO not implemented yet
 ;;;###autoload
 (defun moc-notes ()
@@ -270,7 +274,7 @@ large org documents."
     (run-hook-with-args moc-after-make-frame-function
                         (list note-frame))))
 
-;;; Subtle Cursor mode
+;; * Subtle Cursor mode
 
 ;;;###autoload
 (define-minor-mode moc-subtle-cursor-mode
@@ -291,7 +295,7 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
     (setq-local blink-cursor-blinks (default-value 'blink-cursor-blinks))
     (setq-local blink-cursor-mode (default-value 'blink-cursor-mode)))))
 
-;;; Present-mode
+;; * Present-mode
 
 ;; TODO push modified values onto a stack for restoration
 (define-minor-mode moc-present-mode
@@ -362,7 +366,7 @@ suited for pure presentations."
         (t
          (moc-hide-mode -1))))
 
-;;; Quiet mode
+;; * Quiet mode
 
 (define-minor-mode moc-quiet-mode
   "Inhibit messages in the echo area."
