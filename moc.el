@@ -72,6 +72,16 @@ This is mainly to further clean up source blocks."
   :type 'boolean
   :group 'moc)
 
+(defcustom moc-present-fullscreen t
+  "Switch to single fullscreen window"
+  :group 'moc
+  :type 'boolean)
+
+(defcustom moc-present-window-margins '(2 . 2)
+  "Add margins to presentation window."
+  :group 'moc
+  :type '(choice cons function))
+
 (defcustom moc-screenshot-path #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
@@ -128,6 +138,14 @@ is valid value for the `fullscreen' frame parameter."
 
 (defvar-local moc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
+
+(defvar-local moc--present-old-window-config nil
+  "Restore configuration for fullscreen presentation.
+See `moc-present-fullscreen'.")
+
+(defvar-local moc--focus-margin-left nil)
+(defvar-local moc--focus-margin-right nil)
+(defvar moc--focus-old-window-config nil)
 
 ;; TODO use keep-lines logic from macro-slides
 (defun moc-hide (element &optional display)
@@ -249,6 +267,77 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
     (setq-local blink-cursor-blinks (default-value 'blink-cursor-blinks))
     (setq-local blink-cursor-mode (default-value 'blink-cursor-mode)))))
 
+;;; Present-mode
+
+;; TODO push modified values onto a stack for restoration
+(define-minor-mode moc-present-mode
+  "Make the screen as clean as possible."
+  :group 'moc
+  :global t
+  (cond (moc-present-mode
+         (when (featurep 'git-gutter)
+           (git-gutter-mode -1))
+         (when (featurep 'jinx)
+           (jinx-mode -1))
+         (when (featurep 'org-appear-mode)
+           (org-appear-mode -1))
+
+         (hide-mode-line-mode 1)
+
+         ;; TODO Default images to inline display
+
+         (when moc-present-fullscreen
+           (setq moc--present-old-window-config
+                 (current-window-configuration))
+           (delete-other-windows))
+
+         (when moc-present-window-margins
+           (set-window-margins nil
+                               (car moc-present-window-margins)
+                               (cdr moc-present-window-margins)))
+
+         (moc-subtle-cursor-mode 1)
+         (moc-quiet-mode 1)
+         (moc-clean-mode 1))
+
+        ;; Reverse everything above
+        (t
+         (moc-quiet-mode -1)
+         (moc-subtle-cursor-mode -1)
+         (moc-clean-mode -1)
+
+         (when (and moc--present-old-window-config
+                    moc-present-fullscreen)
+           (set-window-configuration
+            moc--present-old-window-config)
+           (setq moc--present-old-window-config nil))
+
+         ;; TODO restore image display
+
+         (when moc-present-window-margins
+           (set-window-margins nil 0 0))
+
+         (hide-mode-line-mode -1)
+
+         ;; Features back on
+         (when (featurep 'org-appear-mode)
+           (org-appear-mode 1))
+         (when (featurep 'git-gutter)
+           (git-gutter-mode 1))
+         (when (featurep 'jinx)
+           (jinx-mode 1)))))
+
+(define-minor-mode moc-clean-mode
+  "Clean but still interactive.
+See `moc-present-mode' for additional changes that are better
+suited for pure presentations."
+  :group 'moc
+  :global t
+  (cond (moc-clean-mode
+         (moc-hide-mode 1))
+        (t
+         (moc-hide-mode -1))))
+
 ;;; Quiet mode
 
 (define-minor-mode moc-quiet-mode
@@ -268,10 +357,6 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
                  inhibit-message t)))
         (t
          (setq inhibit-message moc--quiet-old-inhibit-message))))
-
-(defvar-local moc--focus-margin-left nil)
-(defvar-local moc--focus-margin-right nil)
-(defvar moc--focus-old-window-config nil)
 
 ;; * Focus fullscreen text
 
