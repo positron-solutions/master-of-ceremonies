@@ -359,11 +359,15 @@ See `mc-present-mode' for additional changes that are better
 suited for pure presentations."
   :group 'mc
   :global t
-  (cond (mc-clean-mode
+  (cond (mc-live-present-mode
          (when (featurep 'jinx)
            (jinx-mode -1))
          (when (featurep 'git-gutter)
            (git-gutter-mode -1))
+         ;; TODO upstream your custom keycast integration
+         ;; TODO stop using DOOM modeline because it's not easy to customize
+         (when (featurep 'keycast)
+           (ignore-errors (keycast-freestyle-mode 1)))
 
          (mc-hide-mode 1))
         (t
@@ -372,7 +376,9 @@ suited for pure presentations."
          (when (featurep 'jinx)
            (jinx-mode 1))
          (when (featurep 'git-gutter)
-           (git-gutter-mode 1)))))
+           (git-gutter-mode 1))
+         (when (featurep 'keycast)
+           (keycast-freestyle-mode -1)))))
 
 ;; * Quiet mode
 
