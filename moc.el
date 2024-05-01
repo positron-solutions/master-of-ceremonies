@@ -455,10 +455,6 @@ suited for pure presentations."
                         'line-prefix nil
                         'wrap-prefix nil))
 
-    ;; TODO this is insufficient and I had to use face remapping for org blocks.
-    (add-face-text-property (point-min) (point-max)
-                            '(:background nil))
-
     (let* ((h (window-pixel-height))
            (w (window-pixel-width))
            (text-size (window-text-pixel-size))
@@ -475,8 +471,13 @@ suited for pure presentations."
            ;; At least as big as the goal, but without exceeding the max
            (scale (min max-text-scale min-scale))
            (scale-overlay (make-overlay 1 (point-max)))
+           (default-background (face-attribute 'default :background)))
+
+      ;; Overrides faces but not inverse colors, which actually is kind of
+      ;; desirable for org-modern's TODO's
       (overlay-put scale-overlay 'face
-                   `(:height ,scale))
+                   `(:height ,scale :background ,default-background))
+
       (let* ((h (window-pixel-height))
              (w (window-pixel-width))
              (text-size (window-text-pixel-size))
