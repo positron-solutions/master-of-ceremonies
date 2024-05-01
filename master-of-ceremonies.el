@@ -334,7 +334,7 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
         (t
          (mc-quiet-mode -1)
          (mc-subtle-cursor-mode -1)
-         (mc-live-present -1)
+         (mc-live-present-mode -1)
 
          (when (and mc--present-old-window-config
                     mc-present-fullscreen)
