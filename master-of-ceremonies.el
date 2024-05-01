@@ -454,7 +454,7 @@ suited for pure presentations."
 (defun mc--display-fullscreen (text)
   "Show TEXT with properties in a fullscreen window."
   (setq mc--focus-old-window-config (current-window-configuration))
-  (let ((buffer (get-buffer-create "*MC*" t))
+  (let ((buffer (get-buffer-create "*MC Focus*" t))
         (text (mc--focus-clean-properties text)))
     (delete-other-windows)
     (let ((inhibit-message t))
