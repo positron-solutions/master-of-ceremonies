@@ -2,13 +2,21 @@
 
 Tools for display and presentation
 
-- hide org markup mode `moc-hide-mode`
-- set resolution with `moc-set-resolution`
-- fullscreen focus with highlight and playback with `moc-focus`
-- subtle cursor mode `moc-subtle-cursor-mode`
-- no messages `moc-quiet-mode`
+- hide org markup mode `mc-hide-mode`
+- set resolution with `mc-set-resolution`
+- fullscreen focus with highlight and playback with `mc-focus`
+- subtle cursor mode `mc-subtle-cursor-mode`
+- no messages `mc-quiet-mode`
 
-This package is stil in development but being published to make it available.
+Many of these modes and some integrations with other packages are wrapped up
+into:
+
+- `mc-live-present-mode` for cleaning up a presentation buffer but remaining
+  interactive
+- `mc-present-mode` for a truly minimal display with subtle cursor, quiet mode,
+  as close as possible to just a pure presentation
+
+This package is still in development but being published to make it available.
 Subscribe to [Positron's YouTube
 channel](https://www.youtube.com/@Positron-gv7do) to catch updates on when it's
 added to package archives and more information about how to use it.
