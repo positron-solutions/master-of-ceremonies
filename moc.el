@@ -82,6 +82,30 @@ This is mainly to further clean up source blocks."
   :group 'moc
   :type '(choice cons function))
 
+(defcustom moc-focus-width-factor-max 0.85
+  "Focused text maximum width fraction.
+This is never exceeded"
+  :group 'moc
+  :type 'float)
+
+(defcustom moc-focus-width-factor-min 0.6
+  "Focused text minimum width fraction.
+This will be achieved unless another maximum is violated."
+  :group 'moc
+  :type 'float)
+
+(defcustom moc-focus-height-factor-max 0.8
+  "Focused text maximum height fraction.
+This is never exceeded."
+  :group 'moc
+  :type 'float)
+
+(defcustom moc-focus-height-factor-min 0.35
+  "Focused text minimum height fraction.
+This will be achieved unless another maximum is violated"
+  :group 'moc
+  :type 'float)
+
 (defcustom moc-screenshot-path #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
@@ -438,14 +462,21 @@ suited for pure presentations."
     (let* ((h (window-pixel-height))
            (w (window-pixel-width))
            (text-size (window-text-pixel-size))
-           ;; TODO customize limits and minimums
-           (max-text-scale (min (/ (* w 0.8) (car text-size))
-                                (/ (* h 0.75) (cdr text-size))))
-           (goal-scale (max (/ (* 0.6 w) (car text-size))
-                            (/ (* 0.4 h)) (cdr text-size)))
-           (scale-overlay (make-overlay 1 (point-max))))
+           ;; Not larger than any maximum
+           (max-text-scale (min (/ (* w moc-focus-width-factor-max)
+                                   (float (car text-size)))
+                                (/ (* h moc-focus-height-factor-max)
+                                   (float (cdr text-size)))))
+           ;; At least as big a the minimum
+           (min-scale (max (/ (* w moc-focus-width-factor-min)
+                              (float (car text-size)))
+                           (/ (* h moc-focus-height-factor-min)
+                              (float (cdr text-size)))))
+           ;; At least as big as the goal, but without exceeding the max
+           (scale (min max-text-scale min-scale))
+           (scale-overlay (make-overlay 1 (point-max)))
       (overlay-put scale-overlay 'face
-                   `(:height ,(min max-text-scale goal-scale)))
+                   `(:height ,scale))
       (let* ((h (window-pixel-height))
              (w (window-pixel-width))
              (text-size (window-text-pixel-size))
