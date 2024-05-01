@@ -21,6 +21,29 @@ Subscribe to [Positron's YouTube
 channel](https://www.youtube.com/@Positron-gv7do) to catch updates on when it's
 added to package archives and more information about how to use it.
 
+## Installation
+
+```elisp
+   ;; package-vc
+   (package-vc-install
+    '(master-of-ceremonies
+      :url "https://github.com/positron-solutions/master-of-ceremonies.git"))
+
+   ;; using elpaca's with explicit recipe
+   (use-package master-of-ceremonies
+     :elpaca (master-of-ceremonies 
+              :host github
+              :repo "positron-solutions/master-of-ceremonies"))
+
+   ;; straight with explicit recipe
+   (use-package master-of-ceremonies
+     :straight (master-of-ceremonies 
+                :type git :host github
+                :repo "positron-solutions/master-of-ceremonies"))
+
+   ;; or use manual load-path & require, you brave yak shaver
+```
+
 ## Extending
 
 This package was developed alongside Macro Slides.  Macro Slides is focused on
