@@ -397,6 +397,14 @@ suited for pure presentations."
          (put-text-property
           begin end
           'face (plist-get (car interval) 'face)
+          clean-string)
+
+         ;; TODO pass along overlays and extract their 'face and 'display to
+         ;; compute the buffer visible string.
+
+         (put-text-property
+          begin end
+          'display (plist-get (car interval) 'display)
           clean-string)))
      dirty-props)
     clean-string))
