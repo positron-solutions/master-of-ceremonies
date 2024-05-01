@@ -303,10 +303,6 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
   :group 'moc
   :global t
   (cond (moc-present-mode
-         (when (featurep 'git-gutter)
-           (git-gutter-mode -1))
-         (when (featurep 'jinx)
-           (jinx-mode -1))
          (when (featurep 'org-appear-mode)
            (org-appear-mode -1))
 
@@ -326,13 +322,13 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
 
          (moc-subtle-cursor-mode 1)
          (moc-quiet-mode 1)
-         (moc-clean-mode 1))
+         (moc-live-present-mode 1))
 
         ;; Reverse everything above
         (t
          (moc-quiet-mode -1)
          (moc-subtle-cursor-mode -1)
-         (moc-clean-mode -1)
+         (moc-live-present -1)
 
          (when (and moc--present-old-window-config
                     moc-present-fullscreen)
@@ -349,22 +345,28 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
 
          ;; Features back on
          (when (featurep 'org-appear-mode)
-           (org-appear-mode 1))
-         (when (featurep 'git-gutter)
-           (git-gutter-mode 1))
-         (when (featurep 'jinx)
-           (jinx-mode 1)))))
+           (org-appear-mode 1)))))
 
-(define-minor-mode moc-clean-mode
+(define-minor-mode moc-live-present-mode
   "Clean but still interactive.
 See `moc-present-mode' for additional changes that are better
 suited for pure presentations."
   :group 'moc
   :global t
   (cond (moc-clean-mode
+         (when (featurep 'jinx)
+           (jinx-mode -1))
+         (when (featurep 'git-gutter)
+           (git-gutter-mode -1))
+
          (moc-hide-mode 1))
         (t
-         (moc-hide-mode -1))))
+         (moc-hide-mode -1)
+
+         (when (featurep 'jinx)
+           (jinx-mode 1))
+         (when (featurep 'git-gutter)
+           (git-gutter-mode 1)))))
 
 ;; * Quiet mode
 
