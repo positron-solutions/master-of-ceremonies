@@ -406,15 +406,11 @@ suited for pure presentations."
   (unless (eq major-mode 'mc-focus-mode)
     (user-error "Not in focus buffer")))
 
-;; TODO why is this interactive?
 (defun mc-focus-quit ()
   "Fullscreen quit command."
   (interactive)
   (mc--focus-assert-mode)
-  (kill-buffer)
-  (set-window-configuration mc--focus-old-window-config)
-  (setq mc--focus-old-window-config nil
-        mc--focus-cleaned-text nil))
+  (kill-buffer "*MC Focus*"))
 
 ;; only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun mc--maintain-margins ()
@@ -422,12 +418,6 @@ suited for pure presentations."
     (set-window-margins (selected-window)
                         mc--focus-margin-left
                         mc--focus-margin-right)))
-
-;; only add to the `kill-buffer-hook' locally so we don't need to unhook.  We
-;; could rely on the quit command, but the hook is more reliable for things that
-;; absolutely should not remain after the buffer is dead.
-(defun mc--kill-cleanup ()
-  (mc-quiet-mode -1))
 
 (defun mc--focus-clean-properties (text)
   (let ((dirty-props (object-intervals text))
@@ -451,14 +441,23 @@ suited for pure presentations."
      dirty-props)
     clean-string))
 
+(defun mc--focus-cleanup ()
+  (when mc--focus-old-window-config
+    (set-window-configuration mc--focus-old-window-config))
+  (setq mc--focus-old-window-config nil
+        mc--focus-cleaned-text nil))
+
 (defun mc--display-fullscreen (text)
   "Show TEXT with properties in a fullscreen window."
+  (when-let ((old (get-buffer "*MC Focus*")))
+    (kill-buffer old))
   (setq mc--focus-old-window-config (current-window-configuration))
-  (let ((buffer (get-buffer-create "*MC Focus*" t))
+  (let ((buffer (get-buffer-create "*MC Focus*"))
         (text (mc--focus-clean-properties text)))
     (delete-other-windows)
     (let ((inhibit-message t))
       (switch-to-buffer buffer))
+    (add-hook 'kill-buffer-hook #'mc--focus-cleanup nil t)
     (mc-focus-mode)
     (setq-local mode-line-format nil)
     (show-paren-local-mode -1)
@@ -509,10 +508,6 @@ suited for pure presentations."
 
         (add-hook 'buffer-list-update-hook
                   #'mc--maintain-margins
-                  nil t)
-
-        (add-hook 'kill-buffer-hook
-                  #'mc--kill-cleanup
                   nil t)
 
         (goto-char 0)
