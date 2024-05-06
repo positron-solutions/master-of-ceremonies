@@ -47,7 +47,9 @@
 (require 'org-element)
 (require 'transient)
 
-(defgroup mc nil "Master of ceremonies." :prefix 'mc :group 'outline)
+(defgroup mc nil "Master of ceremonies."
+  :prefix 'master-of-ceremonies
+  :group 'outline)
 
 (defcustom mc-note-block-types
   '(comment-block
@@ -57,73 +59,73 @@
 Even if `special-block' is omitted, but `mc-note-special-block-types' is
 populated, some `special-blocks' will be treated as notes."
   :type '(repeat symbol)
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 (defcustom mc-note-special-block-types
   '("note")
   "Types of special `special-block' elements to treat as notes.
 `special-block' org elements have an additional type property."
   :type '(repeat string)
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 (defcustom mc-hide-element-types '(property-drawer keyword)
   "Hide these element types.
 See `org-element-all-elements'."
   :type '(repeat symbol)
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 (defcustom mc-hide-block-header-and-footer t
   "Hide the header and footer of blocks.
 This is mainly to further clean up source blocks."
   :type 'boolean
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 (defcustom mc-present-fullscreen t
   "Switch to single fullscreen window"
-  :group 'mc
+  :group 'master-of-ceremonies
   :type 'boolean)
 
 (defcustom mc-present-window-margins '(2 . 2)
   "Add margins to presentation window."
-  :group 'mc
+  :group 'master-of-ceremonies
   :type '(choice cons function))
 
 (defcustom mc-focus-width-factor-max 0.85
   "Focused text maximum width fraction.
 This is never exceeded"
-  :group 'mc
+  :group 'master-of-ceremonies
   :type 'float)
 
 (defcustom mc-focus-width-factor-min 0.6
   "Focused text minimum width fraction.
 This will be achieved unless another maximum is violated."
-  :group 'mc
+  :group 'master-of-ceremonies
   :type 'float)
 
 (defcustom mc-focus-height-factor-max 0.8
   "Focused text maximum height fraction.
 This is never exceeded."
-  :group 'mc
+  :group 'master-of-ceremonies
   :type 'float)
 
 (defcustom mc-focus-height-factor-min 0.35
   "Focused text minimum height fraction.
 This will be achieved unless another maximum is violated"
-  :group 'mc
+  :group 'master-of-ceremonies
   :type 'float)
 
 (defcustom mc-screenshot-path #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
   :type '(choice string function)
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 ;; TODO focus namespace
 (defcustom mc-after-make-frame-function nil
   "A function with the signature NEW-FRAME.
 Use this for deep customization of the frame behavior."
   :type 'function
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 ;; TODO implement notes
 (defface mc-note-face '((t :size 2.0
@@ -131,7 +133,7 @@ Use this for deep customization of the frame behavior."
                             :distant-foreground "#000000"
                             :inherit default))
   "Default face for notes buffer."
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 (defcustom mc-cap-resolutions
   '((youtube-short . (1080 . 1920))
@@ -149,16 +151,15 @@ Form is one of:
 NAME is a symbol, WIDTH and HEIGHT are integers, and FULLSCREEN
 is valid value for the `fullscreen' frame parameter."
   :type '(cons (choice cons symbol))
-  :group 'mc)
+  :group 'master-of-ceremonies)
 
 (defvar mc--quiet-old-inhibit-message nil)
 
 (defvar-local mc--note-face-cookie nil
   "Memento for remapping the note buffer face.")
 
-;; TODO which overlays are these again?
 (defvar-local mc--overlays nil
-  "Overlays used to hide notes.")
+  "Overlays used to hide things.")
 
 (defvar-local mc--focus-highlight-overlays nil
   "Overlays used to focus text.")
@@ -191,7 +192,7 @@ a newline, for when vertical lines should be preserved."
     (if display
         (overlay-put overlay 'display display)
       (overlay-put overlay 'invisible t))
-    (overlay-put overlay 'mc t)))
+    (overlay-put overlay 'master-of-ceremonies t)))
 
 (defun mc--hide-pattern (regex &optional extra-chars)
   "EXTRA-CHARS is for patterns that don't include their newline."
@@ -202,7 +203,7 @@ a newline, for when vertical lines should be preserved."
                                    (+ (or extra-chars 0) (match-end 0)))))
         (push overlay mc--overlays)
         (overlay-put overlay 'invisible t)
-        (overlay-put overlay 'mc t)))))
+        (overlay-put overlay 'master-of-ceremonies t)))))
 
 (defun mc--special-note-p (special-block)
   "Return SPECIAL-BLOCK if it is matched by `mc-note-special-block-types'."
@@ -253,7 +254,7 @@ content you want to display."
 This should be enabled after narrowing to the displayed content
 to avoid creating an unnecessarily large amount of overlays in
 large org documents."
-  :group 'mc
+  :group 'master-of-ceremonies
   (cond (mc-hide-mode
          (mc-hide-refresh))
         (t
@@ -306,7 +307,7 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
 ;; TODO push modified values onto a stack for restoration
 (define-minor-mode mc-present-mode
   "Make the screen as clean as possible."
-  :group 'mc
+  :group 'master-of-ceremonies
   :global t
   (cond (mc-present-mode
          (when (featurep 'org-appear-mode)
@@ -357,7 +358,7 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
   "Clean but still interactive.
 See `mc-present-mode' for additional changes that are better
 suited for pure presentations."
-  :group 'mc
+  :group 'master-of-ceremonies
   :global t
   (cond (mc-live-present-mode
          (when (featurep 'jinx)
@@ -384,7 +385,7 @@ suited for pure presentations."
 
 (define-minor-mode mc-quiet-mode
   "Inhibit messages in the echo area."
-  :group 'mc
+  :group 'master-of-ceremonies
   :global t
   (cond (mc-quiet-mode
 
