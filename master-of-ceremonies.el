@@ -265,10 +265,10 @@ See `mc-present-fullscreen'.")
 
 ;; * Remap Org Faces
 
-(defun mc-org-reface--remap (status)
+(defun mc-org-reface--remap (remap)
   "Change status of heading face.  If STATUS is nil, apply the default values."
   (cond
-   (status
+   (remap
     (setq
      mc-org-reface-level-1-cookie
      (face-remap-add-relative 'org-level-1 'mc-org-reface-level-1)
@@ -311,7 +311,7 @@ See `mc-present-fullscreen'.")
   (cond (mc-org-reface-mode
          (mc-org-reface--remap t))
         (t
-         (mc-org-reface--remap))))
+         (mc-org-reface--remap nil))))
 
 ;; * Hiding with overlays
 
