@@ -91,25 +91,27 @@ This is mainly to further clean up source blocks."
   :group 'master-of-ceremonies
   :type '(choice cons function))
 
-(defcustom mc-focus-width-factor-max 0.85
+(defcustom mc-focus-width-factor-max 0.7
   "Focused text maximum width fraction.
 This is never exceeded"
   :group 'master-of-ceremonies
   :type 'float)
 
-(defcustom mc-focus-width-factor-min 0.6
+(defcustom mc-focus-width-factor-min 0.5
   "Focused text minimum width fraction.
 This will be achieved unless another maximum is violated."
   :group 'master-of-ceremonies
   :type 'float)
 
-(defcustom mc-focus-height-factor-max 0.8
+(defcustom mc-focus-height-factor-max 0.7
   "Focused text maximum height fraction.
 This is never exceeded."
   :group 'master-of-ceremonies
   :type 'float)
 
-(defcustom mc-focus-height-factor-min 0.35
+;; TODO what we need is a goal based on the height of lines that is constrained
+;; by the maximum based on visible area
+(defcustom mc-focus-height-factor-min 0.2
   "Focused text minimum height fraction.
 This will be achieved unless another maximum is violated"
   :group 'master-of-ceremonies
