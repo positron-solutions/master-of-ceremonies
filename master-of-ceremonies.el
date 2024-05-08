@@ -199,7 +199,7 @@ is valid value for the `fullscreen' frame parameter."
 (defvar-local mc--note-face-cookie nil
   "Memento for remapping the note buffer face.")
 
-(defvar-local mc--overlays nil
+(defvar-local mc-hide--overlays nil
   "Overlays used to hide things.")
 
 (defvar-local mc--focus-highlight-overlays nil
@@ -290,7 +290,7 @@ a newline, for when vertical lines should be preserved."
   (let* ((start (org-element-property :begin element))
          (end (org-element-property :end element))
          (overlay (make-overlay start end)))
-    (push overlay mc--overlays)
+    (push overlay mc-hide--overlays)
     (if display
         (overlay-put overlay 'display display)
       (overlay-put overlay 'invisible t))
@@ -303,7 +303,7 @@ a newline, for when vertical lines should be preserved."
     (while (re-search-forward regex nil t)
       (let ((overlay (make-overlay (match-beginning 0)
                                    (+ (or extra-chars 0) (match-end 0)))))
-        (push overlay mc--overlays)
+        (push overlay mc-hide--overlays)
         (overlay-put overlay 'invisible t)
         (overlay-put overlay 'master-of-ceremonies t)))))
 
@@ -334,6 +334,8 @@ Will remove any existing hiding overlays.  You will usually add
 this to a hook that is called after the buffer is narrowed to the
 content you want to display."
   (interactive)
+  (mapc #'delete-overlay mc-hide--overlays)
+
   ;; when parsing is done after narrowing, only the
   (let ((data (org-element-parse-buffer)))
     (org-element-map data (append mc-hide-element-types
@@ -360,7 +362,7 @@ large org documents."
   (cond (mc-hide-mode
          (mc-hide-refresh))
         (t
-         (mapc #'delete-overlay mc--overlays))))
+         (mapc #'delete-overlay mc-hide--overlays))))
 
 ;; * Notes frame
 
