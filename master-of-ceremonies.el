@@ -75,7 +75,7 @@ See `org-element-all-elements'."
   :type '(repeat symbol)
   :group 'master-of-ceremonies)
 
-(defcustom mc-hide-block-header-and-footer t
+(defcustom mc-hide-block-header-and-footer nil
   "Hide the header and footer of blocks.
 This is mainly to further clean up source blocks."
   :type 'boolean
@@ -349,8 +349,10 @@ content you want to display."
       (mc--hide-pattern org-keyword-regexp 1))
 
     (when mc-hide-block-header-and-footer
-      (mc--hide-pattern "^[ 	]*#\\+begin_[a-z]+.*\n")
-      (mc--hide-pattern "^[ 	]*#\\+end_[a-z]+.*\n"))))
+      ;; Hiding the newlines has pulled up stars from following headings.  More
+      ;; research needed 🚧
+      (mc--hide-pattern "^[ 	]*#\\+begin_[a-z]+.*")
+      (mc--hide-pattern "^[ 	]*#\\+end_[a-z]+.*"))))
 
 ;;;###autoload
 (define-minor-mode mc-hide-mode
