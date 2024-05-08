@@ -3,6 +3,7 @@
 Tools for display and presentation
 
 - hide org markup mode `mc-hide-mode`
+- remap org mode faces`mc-org-reface-mode`
 - set resolution with `mc-set-resolution`
 - fullscreen focus with highlight and playback with `mc-focus`
 - subtle cursor mode `mc-subtle-cursor-mode`
