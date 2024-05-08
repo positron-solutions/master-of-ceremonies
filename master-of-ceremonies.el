@@ -31,11 +31,12 @@
 ;;
 ;; Master of ceremonies.  Tools for display, screen capture, and presentation:
 ;;
-;; - hide org markup mode `mc-hide-markup-mode'
+;; - hide org markup with `mc-hide-markup-mode'
 ;; - remap org faces with `mc-org-reface-mode'
 ;; - set resolution with `mc-set-resolution'
 ;; - fullscreen focus with highlight and playback with `mc-focus'
-;; - subtle cursor mode `mc-subtle-cursor-mode'
+;; - subtle, transient cursor with `mc-subtle-cursor-mode'
+;; - hide cursor entirely with `mc-hide-cursor-mode'
 ;; - no messages `mc-quiet-mode'
 ;;
 ;; - cleaned up interactive presentations with `mc-live-present-mode'
@@ -45,6 +46,7 @@
 ;; unfortunate naming collision.  We will attempt to bring glory to your name.
 
 ;;; Code:
+(require 'frame)
 (require 'org-element)
 (require 'transient)
 
@@ -79,6 +81,35 @@ See `org-element-all-elements'."
   "Hide the header and footer of blocks.
 This is mainly to further clean up source blocks."
   :type 'boolean
+  :group 'master-of-ceremonies)
+
+(defcustom mc-subtle-cursor-type '(hbar . 0)
+  "The normal state of the subtle cursor.
+This state is the resting state, but due to the way the
+`blink-cursor-alist' works, We can only make an invisible resting
+state by using a zero height hbar.  Otherwise the blinking state
+won't match, and we don't see anything after cursor movement.
+
+See cursor parameters in the Elisp manual.  All of the subtle
+cursor settings work together to create a transient cursor
+effect."
+  :type 'list
+  :group 'master-of-ceremonies)
+
+(defcustom mc-subtle-cursor-blink-type '(hbar . 4)
+  "The blink state of the subtle cursor.
+See cursor parameters in the Elisp manual.  All of the subtle
+cursor settings work together to create a transient cursor
+effect."
+  :type '(choice list symbol)
+  :group 'master-of-ceremonies)
+
+(defcustom mc-subtle-cursor-blinks 1
+  "The number of blinks.
+See cursor parameters in the Elisp manual.  All of the subtle
+cursor settings work together to create a transient cursor
+effect."
+  :type 'integer
   :group 'master-of-ceremonies)
 
 (defcustom mc-present-fullscreen t
@@ -390,25 +421,58 @@ large org documents."
                         (list note-frame))))
 
 ;; * Subtle Cursor mode
+(defvar mc-hide-cursor-mode)            ; compiler appeasement
 
 ;;;###autoload
 (define-minor-mode mc-subtle-cursor-mode
   "Make cursor subtle.
 If `blink-cursor-mode' is off, there will be no visible cursor at all."
-  :keymap nil
+  :group 'master-of-ceremonies
   (cond
    (mc-subtle-cursor-mode
-    ;; TODO customize
-    (setq-local blink-cursor-alist '(((hbar . 0) . bar)))
-    (setq-local cursor-type '(hbar . 0))
-    (setq-local blink-cursor-blinks 4)
-    (setq-local blink-cursor-interval 0.1)
-    (setq-local blink-cursor-delay 0.0))
+    (when mc-hide-cursor-mode
+      (mc-hide-cursor-mode -1))
+    (setq-local blink-cursor-alist (list (cons
+                                          mc-subtle-cursor-type
+                                          mc-subtle-cursor-blink-type)))
+    (setq-local cursor-type mc-subtle-cursor-type)
+    (setq-local blink-cursor-blinks mc-subtle-cursor-blinks)
+    ;; This interval and delay are not really optional.  The interval must be
+    ;; short or else the cursor will not blink early enough while the delay must
+    ;; be zero or else the blink state doesn't show soon enough.
+    (setq-local blink-cursor-interval 2.0)
+    ;; "Values smaller than 0.2 sec are treated as 0.2 sec."
+    ;; because someone thought there is no use case for zero 🤡
+    (setq-local blink-cursor-delay 0.2)
+    (blink-cursor-mode 1))
    (t
     (setq-local blink-cursor-alist (default-value 'blink-cursor-alist))
     (setq-local cursor-type (default-value 'cursor-type))
     (setq-local blink-cursor-blinks (default-value 'blink-cursor-blinks))
-    (setq-local blink-cursor-mode (default-value 'blink-cursor-mode)))))
+
+    (setq-local blink-cursor-interval (default-value 'blink-cursor-interval))
+    (setq-local blink-cursor-delay (default-value 'blink-cursor-delay))
+    (blink-cursor-mode -1))))
+
+;; * Hide Cursor Mode
+
+;;;###autoload
+(define-minor-mode mc-hide-cursor-mode
+  "Make cursor completely hidden."
+  :group 'master-of-ceremonies
+  (cond
+   (mc-hide-cursor-mode
+    (when mc-subtle-cursor-mode
+      (mc-subtle-cursor-mode -1))
+    ;; Setting the `blink-cursor-alist' and the `cursor-type' this way hides it
+    ;; entirely.  No need to customize.
+    ;; TODO IIRC This can't match and therefore the blink state is not affected.
+    ;; Everything is still hidden.
+    (setq-local blink-cursor-alist '((nil . nil)))
+    (setq-local cursor-type nil))
+   (t
+    (setq-local blink-cursor-alist (default-value 'blink-cursor-alist))
+    (setq-local cursor-type (default-value 'cursor-type)))))
 
 ;; * Present-mode
 
@@ -572,7 +636,7 @@ suited for pure presentations."
     (mc-focus-mode)
     (setq-local mode-line-format nil)
     (show-paren-local-mode -1)
-    (mc-subtle-cursor-mode 1)
+    (mc-hide-cursor-mode 1)
     (read-only-mode -1)
 
     ;; Before we start adding properties, save the input text without additional
@@ -631,7 +695,7 @@ suited for pure presentations."
   :parent special-mode-map
   "q" #'mc-focus-quit
   "l" #'mc-focus-highlight
-  "c" #'mc-subtle-cursor-mode
+  "c" #'mc-hide-cursor-mode
   "w" #'mc-focus-kill-ring-save
   "s" #'mc-focus-screenshot
   "u" #'mc-focus-highlight-clear)

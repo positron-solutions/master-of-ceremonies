@@ -7,6 +7,7 @@ Tools for display and presentation
 - set resolution with `mc-set-resolution`
 - fullscreen focus with highlight and playback with `mc-focus`
 - subtle cursor mode `mc-subtle-cursor-mode`
+- hide cursor mode `mc-hide-cursor-mode`
 - no messages `mc-quiet-mode`
 
 Many of these modes and some integrations with other packages are wrapped up
