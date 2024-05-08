@@ -31,7 +31,7 @@
 ;;
 ;; Master of ceremonies.  Tools for display, screen capture, and presentation:
 ;;
-;; - hide org markup mode `mc-hide-mode'
+;; - hide org markup mode `mc-hide-markup-mode'
 ;; - remap org faces with `mc-org-reface-mode'
 ;; - set resolution with `mc-set-resolution'
 ;; - fullscreen focus with highlight and playback with `mc-focus'
@@ -357,13 +357,13 @@ content you want to display."
       (mc--hide-pattern "^[ 	]*#\\+end_[a-z]+.*"))))
 
 ;;;###autoload
-(define-minor-mode mc-hide-mode
+(define-minor-mode mc-hide-markup-mode
   "Hide all configured elements.
 This should be enabled after narrowing to the displayed content
 to avoid creating an unnecessarily large amount of overlays in
 large org documents."
   :group 'master-of-ceremonies
-  (cond (mc-hide-mode
+  (cond (mc-hide-markup-mode
          (mc-hide-refresh))
         (t
          (mapc #'delete-overlay mc-hide--overlays))))
@@ -480,9 +480,9 @@ suited for pure presentations."
          (when (featurep 'keycast)
            (ignore-errors (keycast-freestyle-mode 1)))
 
-         (mc-hide-mode 1))
+         (mc-hide-markup-mode 1))
         (t
-         (mc-hide-mode -1)
+         (mc-hide-markup-mode -1)
 
          (when (featurep 'jinx)
            (jinx-mode 1))
