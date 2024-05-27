@@ -784,7 +784,12 @@ contained by some BEG END will have the shadow face applied."
 Optional HIGHLIGHTS is a list of (BEG END)."
   (interactive
    (list (if (region-active-p)
-             (buffer-substring (region-beginning) (region-end))
+             (funcall (if rectangle-mark-mode
+                          (lambda (beg end)
+                            (string-join (extract-rectangle beg end)
+                                         "\n"))
+                        #'buffer-substring)
+                      (region-beginning) (region-end))
            (read-string "enter focus text: "))))
   (mc--display-fullscreen text)
   (when highlights
