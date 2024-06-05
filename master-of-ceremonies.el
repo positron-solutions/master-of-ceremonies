@@ -668,7 +668,7 @@ suited for pure presentations."
       ;; Overrides faces but not inverse colors, which actually is kind of
       ;; desirable for org-modern's TODO's
       (overlay-put scale-overlay 'face
-                   `(:height ,scale :background ,default-background))
+                   `(:height ,scale :background ,default-background :extend t))
 
       (let* ((h (window-pixel-height))
              (w (window-pixel-width))
