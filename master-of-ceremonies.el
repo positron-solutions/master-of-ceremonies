@@ -47,7 +47,9 @@
 
 ;;; Code:
 (require 'frame)
+(require 'face-remap)
 (require 'org-element)
+(require 'rect)
 (require 'transient)
 
 (defgroup mc nil "Master of ceremonies."
