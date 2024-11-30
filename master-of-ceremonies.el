@@ -46,7 +46,6 @@
 ;;; Code:
 (require 'frame)
 (require 'face-remap)
-(require 'org-element)
 (require 'rect)
 (require 'transient)
 
@@ -54,73 +53,8 @@
   :prefix 'master-of-ceremonies
   :group 'outline)
 
-(defcustom mc-note-block-types
-  '(comment-block
-    quote-block
-    verse-block)
-  "Element types from `org-element-all-elements'.
-Even if `special-block' is omitted, but `mc-note-special-block-types' is
-populated, some `special-blocks' will be treated as notes."
-  :type '(repeat symbol)
-  :group 'master-of-ceremonies)
 
-(defcustom mc-note-special-block-types
-  '("note")
-  "Types of special `special-block' elements to treat as notes.
-`special-block' org elements have an additional type property."
-  :type '(repeat string)
-  :group 'master-of-ceremonies)
 
-(defcustom mc-hide-element-types '(property-drawer keyword)
-  "Hide these element types.
-See `org-element-all-elements'."
-  :type '(repeat symbol)
-  :group 'master-of-ceremonies)
-
-(defcustom mc-hide-block-header-and-footer nil
-  "Hide the header and footer of blocks.
-This is mainly to further clean up source blocks."
-  :type 'boolean
-  :group 'master-of-ceremonies)
-
-(defcustom mc-subtle-cursor-type '(hbar . 0)
-  "The normal state of the subtle cursor.
-This state is the resting state, but due to the way the
-`blink-cursor-alist' works, We can only make an invisible resting
-state by using a zero height hbar.  Otherwise the blinking state
-won't match, and we don't see anything after cursor movement.
-
-See cursor parameters in the Elisp manual.  All of the subtle
-cursor settings work together to create a transient cursor
-effect."
-  :type 'list
-  :group 'master-of-ceremonies)
-
-(defcustom mc-subtle-cursor-blink-type '(hbar . 4)
-  "The blink state of the subtle cursor.
-See cursor parameters in the Elisp manual.  All of the subtle
-cursor settings work together to create a transient cursor
-effect."
-  :type '(choice list symbol)
-  :group 'master-of-ceremonies)
-
-(defcustom mc-subtle-cursor-blinks 1
-  "The number of blinks.
-See cursor parameters in the Elisp manual.  All of the subtle
-cursor settings work together to create a transient cursor
-effect."
-  :type 'integer
-  :group 'master-of-ceremonies)
-
-(defcustom mc-present-fullscreen t
-  "Switch to single fullscreen window"
-  :group 'master-of-ceremonies
-  :type 'boolean)
-
-(defcustom mc-present-window-margins '(2 . 2)
-  "Add margins to presentation window."
-  :group 'master-of-ceremonies
-  :type '(choice cons function))
 
 (defcustom mc-focus-width-factor-max 0.7
   "Focused text maximum width fraction.
@@ -151,23 +85,6 @@ This will be achieved unless another maximum is violated"
 (defcustom mc-screenshot-path #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
-  :type '(choice string function)
-  :group 'master-of-ceremonies)
-
-;; TODO focus namespace
-(defcustom mc-after-make-frame-function nil
-  "A function with the signature NEW-FRAME.
-Use this for deep customization of the frame behavior."
-  :type 'function
-  :group 'master-of-ceremonies)
-
-;; TODO implement notes
-(defface mc-note-face '((t :size 2.0
-                            :foreground "#ffffff"
-                            :distant-foreground "#000000"
-                            :inherit default))
-  "Default face for notes buffer."
-  :group 'master-of-ceremonies)
 
 (defcustom mc-cap-resolutions
   '((youtube-short . (1080 . 1920))
@@ -228,12 +145,6 @@ is valid value for the `fullscreen' frame parameter."
   :group 'macro-slides)
 
 (defvar mc--quiet-old-inhibit-message nil)
-
-(defvar-local mc--note-face-cookie nil
-  "Memento for remapping the note buffer face.")
-
-(defvar-local mc-hide--overlays nil
-  "Overlays used to hide things.")
 
 (defvar-local mc--focus-highlight-overlays nil
   "Overlays used to focus text.")
@@ -304,122 +215,6 @@ See `mc-present-fullscreen'.")
     (face-remap-remove-relative mc-org-reface-document-title-cookie)
     (face-remap-remove-relative mc-org-reface-document-info-cookie))))
 
-;;;###autoload
-(define-minor-mode mc-org-reface-mode
-  "Reface org document."
-  :group 'master-of-ceremonies
-  (cond (mc-org-reface-mode
-         (mc-org-reface--remap t))
-        (t
-         (mc-org-reface--remap nil))))
-
-;; * Hiding with overlays
-
-;; TODO use keep-lines logic from macro-slides
-(defun mc-hide (element &optional display)
-  "Display ELEMENT with a zero-length overlay.
-Optional DISPLAY can be used to provide replacement text, such as
-a newline, for when vertical lines should be preserved."
-  (let* ((start (org-element-property :begin element))
-         (end (org-element-property :end element))
-         (overlay (make-overlay start end)))
-    (push overlay mc-hide--overlays)
-    (if display
-        (overlay-put overlay 'display display)
-      (overlay-put overlay 'invisible t))
-    (overlay-put overlay 'master-of-ceremonies t)))
-
-(defun mc--hide-pattern (regex &optional extra-chars)
-  "EXTRA-CHARS is for patterns that don't include their newline."
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward regex nil t)
-      (let ((overlay (make-overlay (match-beginning 0)
-                                   (+ (or extra-chars 0) (match-end 0)))))
-        (push overlay mc-hide--overlays)
-        (overlay-put overlay 'invisible t)
-        (overlay-put overlay 'master-of-ceremonies t)))))
-
-(defun mc--special-note-p (special-block)
-  "Return SPECIAL-BLOCK if it is matched by `mc-note-special-block-types'."
-  (when (member (org-element-property :type special-block)
-                mc-note-special-block-types)
-    special-block))
-
-(defun mc--match-notes (data)
-  "Return elements from DATA should be treated as notes."
-  (cons (org-element-map data mc-note-block-types
-          #'identity)
-        (when mc-note-special-block-types
-          (org-element-map data 'special-block
-            #'mc--special-note-p))))
-
-(defun mc--hide-keyword-labeled (data)
-  "Searches for elements labeled: #+attr_hide: t.
-Value is ignored, but generally should be t for clarity."
-  (org-element-map data t
-    (lambda (e) (when (org-element-property :attr_hide e)
-             (mc-hide e)))))
-
-(defun mc-hide-refresh ()
-  "Refresh hiding of all configured types.
-Will remove any existing hiding overlays.  You will usually add
-this to a hook that is called after the buffer is narrowed to the
-content you want to display."
-  (interactive)
-  (mapc #'delete-overlay mc-hide--overlays)
-
-  ;; when parsing is done after narrowing, only the
-  (let ((data (org-element-parse-buffer)))
-    (org-element-map data (append mc-hide-element-types
-                                  mc-note-block-types)
-      #'mc-hide)
-
-    (mc--hide-keyword-labeled data)
-
-    ;; Affiliated keywords need a regex approach
-    (when (member 'keyword mc-hide-element-types)
-      (mc--hide-pattern org-keyword-regexp 1))
-
-    (when mc-hide-block-header-and-footer
-      ;; Hiding the newlines has pulled up stars from following headings.  More
-      ;; research needed 🚧
-      (mc--hide-pattern "^[ 	]*#\\+begin_[a-z]+.*")
-      (mc--hide-pattern "^[ 	]*#\\+end_[a-z]+.*"))))
-
-;;;###autoload
-(define-minor-mode mc-hide-markup-mode
-  "Hide all configured elements.
-This should be enabled after narrowing to the displayed content
-to avoid creating an unnecessarily large amount of overlays in
-large org documents."
-  :group 'master-of-ceremonies
-  (cond (mc-hide-markup-mode
-         (mc-hide-refresh))
-        (t
-         (mapc #'delete-overlay mc-hide--overlays))))
-
-;; * Notes frame
-
-;; TODO not implemented yet
-;;;###autoload
-(defun mc-notes ()
-  "Display content matched by notes in an indirect buffer."
-  (interactive)
-  (user-error "Not finished implementing")
-  (let* ((base-buffer (or (buffer-base-buffer (current-buffer))
-                          (current-buffer)))
-         (base-buffer-name (buffer-name base-buffer))
-         (note-buffer-name (format "*notes: %s*" base-buffer-name))
-         (note-buffer (make-indirect-buffer base-buffer
-                                            note-buffer-name
-                                            nil t))
-         (note-frame (make-frame))
-         (window (car (window-list note-frame))))
-    (set-window-buffer window note-buffer)
-    (run-hook-with-args mc-after-make-frame-function
-                        (list note-frame))))
-
 ;; * Subtle Cursor mode
 (defvar mc-hide-cursor-mode)            ; compiler appeasement
 
@@ -474,86 +269,15 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
     (setq-local blink-cursor-alist (default-value 'blink-cursor-alist))
     (setq-local cursor-type (default-value 'cursor-type)))))
 
-;; * Present-mode
 
-;; TODO push modified values onto a stack for restoration
-(define-minor-mode mc-present-mode
-  "Make the screen as clean as possible."
-  :group 'master-of-ceremonies
-  :global t
-  (cond (mc-present-mode
-         (when (featurep 'org-appear-mode)
-           (org-appear-mode -1))
-
-         (hide-mode-line-mode 1)
-
-         ;; TODO Default images to inline display
-
-         (when mc-present-fullscreen
-           (setq mc--present-old-window-config
-                 (current-window-configuration))
-           (delete-other-windows))
-
-         (when mc-present-window-margins
-           (set-window-margins nil
-                               (car mc-present-window-margins)
-                               (cdr mc-present-window-margins)))
-
-         (mc-subtle-cursor-mode 1)
-         (mc-quiet-mode 1)
-         (mc-org-reface-mode 1)
-         (mc-live-present-mode 1))
-
-        ;; Reverse everything above
-        (t
-         (mc-quiet-mode -1)
-         (mc-org-reface-mode -1)
-         (mc-live-present-mode -1)
-         (mc-subtle-cursor-mode -1)
-
-         (when (and mc--present-old-window-config
-                    mc-present-fullscreen)
-           (set-window-configuration
-            mc--present-old-window-config)
-           (setq mc--present-old-window-config nil))
 
          ;; TODO restore image display
 
-         (when mc-present-window-margins
-           (set-window-margins nil 0 0))
 
          (hide-mode-line-mode -1)
 
-         ;; Features back on
-         (when (featurep 'org-appear-mode)
-           (org-appear-mode 1)))))
 
-(define-minor-mode mc-live-present-mode
-  "Clean but still interactive.
-See `mc-present-mode' for additional changes that are better
-suited for pure presentations."
-  :group 'master-of-ceremonies
   :global t
-  (cond (mc-live-present-mode
-         (when (featurep 'jinx)
-           (jinx-mode -1))
-         (when (featurep 'git-gutter)
-           (git-gutter-mode -1))
-         ;; TODO upstream your custom keycast integration
-         ;; TODO stop using DOOM modeline because it's not easy to customize
-         (when (featurep 'keycast)
-           (ignore-errors (keycast-freestyle-mode 1)))
-
-         (mc-hide-markup-mode 1))
-        (t
-         (mc-hide-markup-mode -1)
-
-         (when (featurep 'jinx)
-           (jinx-mode 1))
-         (when (featurep 'git-gutter)
-           (git-gutter-mode 1))
-         (when (featurep 'keycast)
-           (keycast-freestyle-mode -1)))))
 
 ;; * Quiet mode
 
