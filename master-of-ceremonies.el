@@ -49,8 +49,8 @@
 (require 'rect)
 (require 'transient)
 
-(defgroup mc nil "Master of ceremonies."
-  :prefix 'master-of-ceremonies
+(defgroup master-of-ceremonies nil "Master of ceremonies."
+  :prefix 'mc
   :group 'outline)
 
 (defcustom mc-subtle-cursor-blinks 3
@@ -150,11 +150,6 @@ This timer calls `mc-subtle-cursor-timer-function' every
 
 (defvar-local mc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
-
-(defvar-local mc--present-old-window-config nil
-  "Restore configuration for fullscreen presentation.
-See `mc-present-fullscreen'.")
-
 (defvar-local mc--focus-margin-left nil)
 (defvar-local mc--focus-margin-right nil)
 (defvar mc--focus-old-window-config nil)
@@ -619,11 +614,9 @@ RESOLUTION is a key into `mc-cap-resolutions'."
   ["Screen Aspect and Resolution"
    ("s" "toggle resolution" mc--cap-set-frame-resolution)])
 
-;; TODO not every binary setting needs a mode
-;; TODO multiple-settings transient
-;; TODO multiple saved values, profiles
-;; TODO toggle values within profiles
-;; TODO reload composite value into dynamic transient
-
 (provide 'master-of-ceremonies)
 ;;; master-of-ceremonies.el ends here
+
+;; Local Variables:
+;; outline-regexp: ";; \\(*+\\)"
+;; End:
