@@ -10,37 +10,35 @@
 
 ;;; License:
 
-;; Permission is hereby granted, free of charge, to any person obtaining a copy of
-;; this software and associated documentation files (the "Software"), to deal in
-;; the Software without restriction, including without limitation the rights to
-;; use, copy, modify, merge, publish, distribute, sub-license, and/or sell copies of
-;; the Software, and to permit persons to whom the Software is furnished to do so,
-;; subject to the following conditions:
+;; Permission is hereby granted, free of charge, to any person obtaining a copy
+;; of this software and associated documentation files (the "Software"), to deal
+;; in the Software without restriction, including without limitation the rights
+;; to use, copy, modify, merge, publish, distribute, sub-license, and/or sell
+;; copies of the Software, and to permit persons to whom the Software is
+;; furnished to do so, subject to the following conditions:
 
-;; The above copyright notice and this permission notice shall be included in all
-;; copies or substantial portions of the Software.
+;; The above copyright notice and this permission notice shall be included in
+;; all copies or substantial portions of the Software.
 
 ;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-;; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-;; FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-;; COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-;; IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-;; CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+;; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+;; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+;; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+;; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+;; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+;; SOFTWARE.
 
 ;;; Commentary:
 ;;
 ;; Master of ceremonies.  Tools for display, screen capture, and presentation:
 ;;
-;; - hide org markup with `mc-hide-markup-mode'
-;; - remap org faces with `mc-org-reface-mode'
-;; - set resolution with `mc-set-resolution'
 ;; - fullscreen focus with highlight and playback with `mc-focus'
+;; - set an exact frame resolution for capture with `mc-frame-size'
 ;; - subtle, transient cursor with `mc-subtle-cursor-mode'
 ;; - hide cursor entirely with `mc-hide-cursor-mode'
-;; - no messages `mc-quiet-mode'
-;;
-;; - cleaned up interactive presentations with `mc-live-present-mode'
-;; - truly minimal presentations with `mc-present-mode'
+;; - supress all messages with `mc-quiet-mode'
+;; - remap many faces with `mc-face-remap'
+;; - set many options at once with `mc-dispatch'
 ;;
 ;; To all the MCs out there who go by MC Focus, my sincerest apologies for the
 ;; unfortunate naming collision.  We will attempt to bring glory to your name.
