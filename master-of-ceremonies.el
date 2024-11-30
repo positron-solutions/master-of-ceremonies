@@ -53,8 +53,21 @@
   :prefix 'master-of-ceremonies
   :group 'outline)
 
+(defcustom mc-subtle-cursor-blinks 3
+  "The number of blinks of the subtle cursor.
+When using a transient cursor effect, the duration of cursor visibility
+is the product of this and `mc-subtle-cursor-interval'.
 
+\\[info] elisp::Cursor Parameters."
+  :type 'integer)
 
+(defcustom mc-subtle-cursor-interval 0.2
+  "Length of cursor blink interval in seconds.
+Values smaller than 0.013 will be treated as 0.013."
+  :type 'number
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (when mc-subtle-cursor-timer (mc-subtle-cursor-start))))
 
 (defcustom mc-focus-width-factor-max 0.7
   "Focused text maximum width fraction.
@@ -146,6 +159,16 @@ is valid value for the `fullscreen' frame parameter."
 
 (defvar mc--quiet-old-inhibit-message nil)
 
+(defvar mc--blink-cursor-old nil)
+(defvar mc--subtle-cursor-dead-windows nil
+  "Store windows where the cursor was left off.")
+(defvar mc-subtle-cursor-timer nil
+  "Timer started from `mc-subtle-cursor-start'.
+This timer calls `mc-subtle-cursor-timer-function' every
+`mc-subtle-cursor-interval' seconds.")
+(defvar mc-subtle-cursor-blinks-done 0
+  "Number of blinks done since we started blinking on NS, X, and MS-Windows.")
+
 (defvar-local mc--focus-highlight-overlays nil
   "Overlays used to focus text.")
 
@@ -214,44 +237,10 @@ See `mc-present-fullscreen'.")
     (face-remap-remove-relative mc-org-reface-level-8-cookie)
     (face-remap-remove-relative mc-org-reface-document-title-cookie)
     (face-remap-remove-relative mc-org-reface-document-info-cookie))))
-
-;; * Subtle Cursor mode
-(defvar mc-hide-cursor-mode)            ; compiler appeasement
-
-;;;###autoload
-(define-minor-mode mc-subtle-cursor-mode
-  "Make cursor subtle.
-If `blink-cursor-mode' is off, there will be no visible cursor at all."
-  :group 'master-of-ceremonies
-  (cond
-   (mc-subtle-cursor-mode
-    (when mc-hide-cursor-mode
-      (mc-hide-cursor-mode -1))
-    (setq-local blink-cursor-alist (list (cons
-                                          mc-subtle-cursor-type
-                                          mc-subtle-cursor-blink-type)))
-    (setq-local cursor-type mc-subtle-cursor-type)
-    (setq-local blink-cursor-blinks mc-subtle-cursor-blinks)
-    ;; This interval and delay are not really optional.  The interval must be
-    ;; short or else the cursor will not blink early enough while the delay must
-    ;; be zero or else the blink state doesn't show soon enough.
-    (setq-local blink-cursor-interval 2.0)
-    ;; "Values smaller than 0.2 sec are treated as 0.2 sec."
-    ;; because someone thought there is no use case for zero 🤡
-    (setq-local blink-cursor-delay 0.2)
-    (blink-cursor-mode 1))
-   (t
-    (setq-local blink-cursor-alist (default-value 'blink-cursor-alist))
-    (setq-local cursor-type (default-value 'cursor-type))
-    (setq-local blink-cursor-blinks (default-value 'blink-cursor-blinks))
-
-    (setq-local blink-cursor-interval (default-value 'blink-cursor-interval))
-    (setq-local blink-cursor-delay (default-value 'blink-cursor-delay))
-    (blink-cursor-mode -1))))
-
 ;; * Hide Cursor Mode
 
-;;;###autoload
+(defvar mc-subtle-cursor-mode)          ; compiler appeasement
+
 (define-minor-mode mc-hide-cursor-mode
   "Make cursor completely hidden."
   :group 'master-of-ceremonies
@@ -259,25 +248,115 @@ If `blink-cursor-mode' is off, there will be no visible cursor at all."
    (mc-hide-cursor-mode
     (when mc-subtle-cursor-mode
       (mc-subtle-cursor-mode -1))
-    ;; Setting the `blink-cursor-alist' and the `cursor-type' this way hides it
-    ;; entirely.  No need to customize.
-    ;; TODO IIRC This can't match and therefore the blink state is not affected.
-    ;; Everything is still hidden.
-    (setq-local blink-cursor-alist '((nil . nil)))
     (setq-local cursor-type nil))
    (t
-    (setq-local blink-cursor-alist (default-value 'blink-cursor-alist))
     (setq-local cursor-type (default-value 'cursor-type)))))
 
+;; * Subtle Cursor Mode
 
+(defun mc-subtle-cursor-start ()
+  "Start the `mc-subtle-cursor-timer'.
+This starts the timer `mc-subtle-cursor-timer', which makes the cursor
+blink if appropriate."
+  (cond
+   ;; stale hook fired
+   ((null mc-subtle-cursor-mode) (mc-subtle-cursor-mode -1))
+   (t
+    (when mc-subtle-cursor-timer
+      (cancel-timer mc-subtle-cursor-timer))
+    ;; TODO figure out the termination for 1 blink
+    (setq mc-subtle-cursor-blinks-done 1)
+    (setq mc-subtle-cursor-timer
+          (run-with-timer (max 0.013 mc-subtle-cursor-interval)
+                          (max 0.013 mc-subtle-cursor-interval)
+                          #'mc-subtle-cursor-timer-function))
+    ;; Use the `cursor-type' ON-STATE
+    (internal-show-cursor nil t))))
 
-         ;; TODO restore image display
+(defun mc-subtle-cursor-timer-function ()
+  "Timer function of timer `mc-subtle-cursor-timer'."
+  (internal-show-cursor nil (not (internal-show-cursor-p)))
+  ;; Suspend counting blinks when the w32 menu-bar menu is displayed,
+  ;; since otherwise menu tooltips will behave erratically.
+  (or (and (fboundp 'w32--menu-bar-in-use)
+           (w32--menu-bar-in-use))
+      ;; XXX guarding this expression upsets the blink count and I don't know
+      ;; how it's supposd to work.
+      (setq mc-subtle-cursor-blinks-done (1+ mc-subtle-cursor-blinks-done)))
+  ;; Each blink is two calls to this function.
+  (when (and (> mc-subtle-cursor-blinks 0)
+             (>= mc-subtle-cursor-blinks-done (* 2 mc-subtle-cursor-blinks)))
+    (when mc-subtle-cursor-timer (cancel-timer mc-subtle-cursor-timer)
+          (setq mc-subtle-cursor-timer nil))
+    (push (selected-window) mc--subtle-cursor-dead-windows)
+    (when (internal-show-cursor-p)
+      (message "Subtle cursor cancelled timer in ON-STATE"))))
 
+(defun mc-subtle-cursor--should-blink ()
+  "Determine whether we should be blinking.
+Returns whether we have any focused non-TTY frame."
+  (and mc-subtle-cursor-mode
+       (let ((frame-list (frame-list))
+             (any-graphical-focused nil))
+         (while frame-list
+           (let ((frame (pop frame-list)))
+             (when (and (display-graphic-p frame) (frame-focus-state frame))
+               (setf any-graphical-focused t)
+               (setf frame-list nil))))
+         any-graphical-focused)))
 
-         (hide-mode-line-mode -1)
+(defun mc-subtle-cursor-check ()
+  "Check if cursor blinking shall be restarted.."
+  (when (mc-subtle-cursor--should-blink)
+    (mc-subtle-cursor-start)))
 
+(define-minor-mode mc-subtle-cursor-mode
+  "Like `blink-cursor-mode' but leaves cursor off.
+This is a modification of `blink-cursor-mode' that immediately
+transitions to the ON-STATE when commands are entered and finishes
+blinking in the OFF-STATE, enabling customization of `cursor-type' and
+`blink-cursor-alist' to achieve a transient cursor or a very subtle
+cursor when the user is not moving the point.
 
+\\[info] elisp::Cursor Parameters.
+
+When you do anything to move the cursor, it will remain visible for the
+product of `mc-subtle-cursor-blinks' and `mc-subtle-cursor-duration'.
+
+Because this mode conflicts with `blink-cursor-mode', it is turned off when
+found active.
+
+🚧 The mode is experimental."
   :global t
+  :init-value (not (or noninteractive
+		       no-blinking-cursor
+		       (eq system-type 'ms-dos)))
+  (cond
+   (mc-subtle-cursor-mode
+    (setq mc--blink-cursor-old blink-cursor-mode)
+    (when blink-cursor-mode
+      (blink-cursor-mode -1))
+    (when mc-hide-cursor-mode
+      (mc-hide-cursor-mode -1))
+    (add-function :after after-focus-change-function
+                  #'mc-subtle-cursor-check)
+    (add-hook 'after-delete-frame-functions #'mc-subtle-cursor-check)
+    (add-hook 'post-command-hook #'mc-subtle-cursor-check)
+    (mc-subtle-cursor-check))
+   (t
+    (remove-hook 'post-command-hook #'mc-subtle-cursor-check)
+    (remove-hook 'after-delete-frame-functions #'mc-subtle-cursor-check)
+    (remove-function after-focus-change-function
+                     #'mc-subtle-cursor-check)
+    (when mc-subtle-cursor-timer
+      (cancel-timer mc-subtle-cursor-timer))
+    ;; Make sure to leave the cursor in the ON-STATE in all windows when
+    ;; quitting.
+    (while-let ((win (pop mc--subtle-cursor-dead-windows)))
+      (internal-show-cursor win t))
+    (when mc--blink-cursor-old
+      (blink-cursor-mode 1)
+      (setq mc--blink-cursor-old nil)))))
 
 ;; * Quiet mode
 
