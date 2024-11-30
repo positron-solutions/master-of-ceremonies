@@ -312,22 +312,22 @@ found active.
 ;; * Quiet mode
 
 (define-minor-mode mc-quiet-mode
-  "Inhibit messages in the echo area."
+  "Inhibit messages in the echo area.
+⚠️ Inhibiting messages is a bit dangerous.  If anything fails, because messages
+are disabled, there may be no obvious user feedback ☠️"
   :group 'master-of-ceremonies
   :global t
-  (cond (mc-quiet-mode
-
-         ;; ⚠️ TODO inhibiting messages is a bit dangerous.  If anything fails,
-         ;; messages will remain disabled ☠️
-
-         ;; Naturally the manual sets not to set this, but the point is that the
-         ;; user doesn't want to have messages for a while.  If it is never to
-         ;; be turned off, how else can messages be avoided except case by case?
-         (unless inhibit-message
-           (setq mc--quiet-old-inhibit-message inhibit-message
-                 inhibit-message t)))
-        (t
-         (setq inhibit-message mc--quiet-old-inhibit-message))))
+  (cond
+   (mc-quiet-mode
+    ;; Naturally the manual sets not to set this, but the point is that the user
+    ;; doesn't want to have messages for a while.  If it is never to be turned
+    ;; off, how else can messages be avoided except case by case with
+    ;; let-binding?
+    (unless inhibit-message
+      (setq mc--quiet-old-inhibit-message inhibit-message
+            inhibit-message t)))
+   (t
+    (setq inhibit-message mc--quiet-old-inhibit-message))))
 
 ;; * Focus fullscreen text
 
