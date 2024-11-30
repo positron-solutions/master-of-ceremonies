@@ -117,47 +117,20 @@ is valid value for the `fullscreen' frame parameter."
   :type '(cons (choice cons symbol))
   :group 'master-of-ceremonies)
 
-(defface mc-org-reface-level-1 '((t :inherit 'org-level-1))
-  "Org heading override."
-  :group 'macro-slides)
+\\[info] elisp::Frame Parameters"
+  :type '(cons (choice cons symbol)))
 
-(defface mc-org-reface-level-2 '((t :inherit 'org-level-2))
-  "Org heading override."
-  :group 'macro-slides)
 
-(defface mc-org-reface-level-3 '((t :inherit 'org-level-3))
-  "Org heading override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-level-4 '((t :inherit 'org-level-4))
-  "Org heading override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-level-5 '((t :inherit 'org-level-5))
-  "Org heading override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-level-6 '((t :inherit 'org-level-6))
-  "Org heading override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-level-7 '((t :inherit 'org-level-7))
-  "Org heading override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-level-8 '((t :inherit 'org-level-8))
-  "Org heading override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-document-title '((t :inherit 'org-document-title))
-  "Org document title override."
-  :group 'macro-slides)
-
-(defface mc-org-reface-document-info '((t :inherit 'org-document-info))
-  "Org document info override."
-  :group 'macro-slides)
+(defcustom mc-face-remap-presets '((bold . ((default :weight bold))))
+  "Face remapping presets.
+Value is an alist.  Each entry should be a cons of SYMBOL PRESET.
+SYMBOL will be used to choose the PRESET. PRESET is an ALIST where each
+element of PRESET is a cons of FACE SPECS where SPECS is one of the
+forms understood by `face-remap-add-relative'.
 
 (defvar mc--quiet-old-inhibit-message nil)
+\\[info] elisp::Face Remapping"
+  :type 'alist)
 
 (defvar mc--blink-cursor-old nil)
 (defvar mc--subtle-cursor-dead-windows nil
@@ -186,57 +159,40 @@ See `mc-present-fullscreen'.")
 (defvar-local mc--focus-margin-right nil)
 (defvar mc--focus-old-window-config nil)
 
-(defvar-local mc-org-reface-level-1-cookie nil)
-(defvar-local mc-org-reface-level-2-cookie nil)
-(defvar-local mc-org-reface-level-3-cookie nil)
-(defvar-local mc-org-reface-level-4-cookie nil)
-(defvar-local mc-org-reface-level-5-cookie nil)
-(defvar-local mc-org-reface-level-6-cookie nil)
-(defvar-local mc-org-reface-level-7-cookie nil)
-(defvar-local mc-org-reface-level-8-cookie nil)
-(defvar-local mc-org-reface-document-title-cookie nil)
-(defvar-local mc-org-reface-document-info-cookie nil)
+(defvar-local mc--face-remap-cookies nil)
 
-;; * Remap Org Faces
+;; * Mass Face Remapping
 
-(defun mc-org-reface--remap (remap)
-  "Change status of heading face.  If STATUS is nil, apply the default values."
-  (cond
-   (remap
-    (setq
-     mc-org-reface-level-1-cookie
-     (face-remap-add-relative 'org-level-1 'mc-org-reface-level-1)
-     mc-org-reface-level-2-cookie
-     (face-remap-add-relative 'org-level-2 'mc-org-reface-level-2)
-     mc-org-reface-level-3-cookie
-     (face-remap-add-relative 'org-level-3 'mc-org-reface-level-3)
-     mc-org-reface-level-4-cookie
-     (face-remap-add-relative 'org-level-4 'mc-org-reface-level-4)
-     mc-org-reface-level-5-cookie
-     (face-remap-add-relative 'org-level-5 'mc-org-reface-level-5)
-     mc-org-reface-level-6-cookie
-     (face-remap-add-relative 'org-level-6 'mc-org-reface-level-6)
-     mc-org-reface-level-7-cookie
-     (face-remap-add-relative 'org-level-7 'mc-org-reface-level-7)
-     mc-org-reface-level-8-cookie
-     (face-remap-add-relative 'org-level-8 'mc-org-reface-level-8)
-     mc-org-reface-document-title-cookie
-     (face-remap-add-relative 'org-document-title
-                              'mc-org-reface-document-title)
-     mc-org-reface-document-info-cookie
-     (face-remap-add-relative 'org-document-info
-                              'mc-org-reface-document-info)))
-   (t
-    (face-remap-remove-relative mc-org-reface-level-1-cookie)
-    (face-remap-remove-relative mc-org-reface-level-2-cookie)
-    (face-remap-remove-relative mc-org-reface-level-3-cookie)
-    (face-remap-remove-relative mc-org-reface-level-4-cookie)
-    (face-remap-remove-relative mc-org-reface-level-5-cookie)
-    (face-remap-remove-relative mc-org-reface-level-6-cookie)
-    (face-remap-remove-relative mc-org-reface-level-7-cookie)
-    (face-remap-remove-relative mc-org-reface-level-8-cookie)
-    (face-remap-remove-relative mc-org-reface-document-title-cookie)
-    (face-remap-remove-relative mc-org-reface-document-info-cookie))))
+(defun mc--read-remap (&optional preset)
+  (when-let ((key (or preset
+                      (completing-read
+                       "Choose a remap preset: "
+                       mc-face-remap-presets))))
+    (cdr (assoc-string key mc-face-remap-presets))))
+
+;;;###autoload
+(defun mc-face-remap (remap &optional keep-existing)
+  "Remap many faces at once.
+REMAP can be a symbol specifying a preset or an alist of FACE REMAP
+pairs.  If any faces have already been remapped, you can pass non-nil
+KEEP-EXISTING"
+  (interactive (list (mc--read-remap)
+                     current-prefix-arg))
+  (unless keep-existing
+    (while-let ((cookie (pop mc--face-remap-cookies)))
+      (face-remap-remove-relative cookie)))
+
+  (let ((remap (if (symbolp remap)
+                   (or (mc--read-remap remap)
+                       (user-error "Remapping not found"))
+                 remap)))
+    (mapc (lambda (r)
+            (let ((face (car r))
+                  (specs (cdr r)))
+              (push (face-remap-add-relative face specs)
+                    mc--face-remap-cookies)))
+          remap)))
+
 ;; * Hide Cursor Mode
 
 (defvar mc-subtle-cursor-mode)          ; compiler appeasement
