@@ -44,6 +44,7 @@
 ;; unfortunate naming collision.  We will attempt to bring glory to your name.
 
 ;;; Code:
+(require 'default-text-scale)
 (require 'frame)
 (require 'face-remap)
 (require 'rect)
@@ -164,17 +165,20 @@ This timer calls `mc-subtle-cursor-timer-function' every
     (cdr (assoc-string key mc-face-remap-presets))))
 
 ;;;###autoload
+(defun mc-face-remap-clear ()
+  (interactive)
+  (while-let ((cookie (pop mc--face-remap-cookies)))
+    (face-remap-remove-relative cookie)))
+
+;;;###autoload
 (defun mc-face-remap (remap &optional keep-existing)
   "Remap many faces at once.
 REMAP can be a symbol specifying a preset or an alist of FACE REMAP
 pairs.  If any faces have already been remapped, you can pass non-nil
 KEEP-EXISTING"
-  (interactive (list (mc--read-remap)
-                     current-prefix-arg))
+  (interactive (list (mc--read-remap) current-prefix-arg))
   (unless keep-existing
-    (while-let ((cookie (pop mc--face-remap-cookies)))
-      (face-remap-remove-relative cookie)))
-
+    (mc-face-remap-clear))
   (let ((remap (if (symbolp remap)
                    (or (mc--read-remap remap)
                        (user-error "Remapping not found"))
@@ -690,6 +694,113 @@ these behaviors may become more consistent."
           (set-frame-parameter frame 'mc--fixed-frame-goal nil)
         (set-frame-parameter frame 'mc--fixed-frame-goal new)
         (add-hook 'window-size-change-functions #'mc--fixed-frame-notify)))))
+
+;; * Master of Ceremonies Dispatch
+;; Let us tie everything together into.  A transient.
+
+;; There isn't a ton of consistency in how these are used.  Still in the
+;; trial-and-error phase of building up an in-transient UI
+
+(defun mc--dispatch-frame-size ()
+  (format
+   "set %s"
+   (if-let ((full (frame-parameter nil 'fullscreen)))
+       (propertize (symbol-name full) 'face 'transient-value)
+     (propertize (format "%s %s" (frame-pixel-width) (frame-pixel-height))))))
+
+(defun mc--dispatch-fixed-frames ()
+  (let ((frames (frame-list))
+        (fixed 0))
+    (while-let ((frame (pop frames)))
+      (when (frame-parameter frame 'mc--fixed-frame-goal)
+        (setq fixed (1+ fixed))))
+    (format
+     "release %-3s"
+     (if (> fixed 0)
+         (propertize (format "%3s frames" fixed) 'face 'success)
+       ""))))
+
+(defun mc--dispatch-cursor-mode ()
+  (if-let ((cursor (if (consp cursor-type)
+                       (car cursor-type)
+                     (if (eq cursor-type t)
+                         (frame-parameter nil 'cursor-type)
+                       cursor-type))))
+      (if mc-subtle-cursor-mode
+          (propertize (format "subtle %-4s" cursor)
+                      'face 'transient-value)
+        (propertize (format "%-11s" (symbol-name cursor))
+                    'face 'transient-value))
+    (propertize "hidden     " 'face 'shadow)))
+
+(defun mc--dispatch-faces-remapped ()
+  (let ((remaps (length mc--face-remap-cookies)))
+    (format
+     "clear %s"
+     (if (> remaps 0)
+         (propertize (format "remaps %-4d" remaps) 'face 'success)
+       ""))))
+
+(defun mc--dispatch-default-text-scale ()
+  (if default-text-scale-mode
+      (propertize (format "scale: %s" (face-attribute 'default :height))
+                  'face 'transient-value)
+    (propertize "off" 'face 'shadow)))
+
+(defun mc--dispatch-text-scale ()
+  (if text-scale-mode
+      (propertize (format "scale: %s" text-scale-mode-amount)
+                  'face 'transient-value)
+    (propertize "off" 'face 'shadow)))
+
+(defun mc--dispatch-default-text-scale-mode-p ()
+  default-text-scale-mode)
+
+(defun mc--dispatch-text-scale-mode-p ()
+  (with-current-buffer transient--shadowed-buffer
+    text-scale-mode))
+
+(defun mc--dispatch-quiet-mode ()
+  (format
+   "quiet %s"
+   (if mc-quiet-mode
+       (propertize "on " 'face 'success)
+     (propertize "off" 'face 'shadow))))
+
+(transient-define-prefix mc-dispatch ()
+  "You are the MC.
+This is likely the command you want to bind globally to become familiar
+with MC commands and to make many adjustments at once."
+  [["Default Text Scale"
+    (:info #'mc--dispatch-default-text-scale)
+    ("+" "increase" default-text-scale-increase :transient t)
+    ("-" "decrease" default-text-scale-decrease :transient t)
+    ;; TODO add inapt-if functions back in when they draw right
+    ("=" "reset" default-text-scale-reset :transient t)]
+   ["Buffer Text Scale"
+    (:info #'mc--dispatch-text-scale)
+    ("t+" "increase" text-scale-increase :transient t)
+    ("t-" "decrease" text-scale-decrease :transient t)
+    ;; TODO add inapt-if functions back in when they draw right
+    ("t=" "reset" text-scale-mode :transient t)]]
+  ["Fixed Frame"
+   ("s" mc-fixed-frame-set :transient t
+    :description mc--dispatch-frame-size)
+   ("R" mc-fixed-frame-release-all :transient t
+    :description mc--dispatch-fixed-frames)]
+  ["Face Remapping"
+   ("r" "remap" mc-face-remap :transient t)
+   ("c" mc-face-remap-clear :transient t
+    :description mc--dispatch-faces-remapped)]
+  [["Cursor"
+    (:info #'mc--dispatch-cursor-mode)
+    ("h" "hide" mc-hide-cursor-mode :transient t)
+    ("." "subtle" mc-subtle-cursor-mode :transient t)]
+   ["Mode Line"
+    ("m" "hide" hide-mode-line-mode :transient t)]
+   ["Echo area"
+    ("q" mc-quiet-mode :transient t
+     :description mc--dispatch-quiet-mode)]])
 
 (provide 'master-of-ceremonies)
 ;;; master-of-ceremonies.el ends here
