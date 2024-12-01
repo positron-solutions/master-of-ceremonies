@@ -228,7 +228,8 @@ blink if appropriate."
 
 (defun mc-subtle-cursor-timer-function ()
   "Timer function of timer `mc-subtle-cursor-timer'."
-  (internal-show-cursor nil (not (internal-show-cursor-p)))
+  (when mc-subtle-cursor-mode
+    (internal-show-cursor nil (not (internal-show-cursor-p))))
   ;; Suspend counting blinks when the w32 menu-bar menu is displayed,
   ;; since otherwise menu tooltips will behave erratically.
   (or (and (fboundp 'w32--menu-bar-in-use)
@@ -305,8 +306,14 @@ found active.
       (cancel-timer mc-subtle-cursor-timer))
     ;; Make sure to leave the cursor in the ON-STATE in all windows when
     ;; quitting.
+    ;; TODO seems like this never actually happens.  Cursor has an alternate
+    ;; state when left around in another window, regardless of whether it was
+    ;; blink on or off when the window changed.
     (while-let ((win (pop mc--subtle-cursor-dead-windows)))
       (internal-show-cursor win t))
+    ;; Selected window likely not in above dead window cleanup and could be in
+    ;; blink off state.
+    (internal-show-cursor nil t)
     (when mc--blink-cursor-old
       (blink-cursor-mode 1)
       (setq mc--blink-cursor-old nil)))))
