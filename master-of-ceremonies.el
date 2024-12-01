@@ -33,8 +33,8 @@
 ;; Master of ceremonies.  Tools for display, screen capture, and presentation:
 ;;
 ;; - fullscreen focus with highlight and playback with `mc-focus'
-;; - set an exact frame resolution for capture with `mc-frame-size'
-;; - subtle, transient cursor with `mc-subtle-cursor-mode'
+;; - set an exact frame resolution for capture with `mc-fixed-frame-set'
+;; - subtle, disappearing cursor with `mc-subtle-cursor-mode'
 ;; - hide cursor entirely with `mc-hide-cursor-mode'
 ;; - supress all messages with `mc-quiet-mode'
 ;; - remap many faces with `mc-face-remap'
@@ -65,10 +65,7 @@ is the product of this and `mc-subtle-cursor-interval'.
 (defcustom mc-subtle-cursor-interval 0.2
   "Length of cursor blink interval in seconds.
 Values smaller than 0.013 will be treated as 0.013."
-  :type 'number
-  :set (lambda (symbol value)
-         (set-default symbol value)
-         (when mc-subtle-cursor-timer (mc-subtle-cursor-start))))
+  :type 'number)
 
 (defcustom mc-focus-width-factor-max 0.7
   "Focused text maximum width fraction.
@@ -99,6 +96,7 @@ This will be achieved unless another maximum is violated"
 (defcustom mc-screenshot-path #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
+  :type '(choice string function))
 
 (defcustom mc-fixed-frame-sizes
   '((youtube-short . (1080 . 1920))
@@ -117,8 +115,9 @@ NAME is a symbol, WIDTH and HEIGHT are integers, and FULLSCREEN
 is valid value for the `fullscreen' frame parameter.
 
 \\[info] elisp::Frame Parameters"
-  :type '(cons symbol (choice cons symbol)))
-
+  :type '(cons symbol
+               (choice (cons number number)
+                       symbol)))
 
 (defcustom mc-face-remap-presets '((bold . ((default :weight bold))))
   "Face remapping presets.
@@ -127,9 +126,11 @@ SYMBOL will be used to choose the PRESET. PRESET is an ALIST where each
 element of PRESET is a cons of FACE SPECS where SPECS is one of the
 forms understood by `face-remap-add-relative'.
 
-(defvar mc--quiet-old-inhibit-message nil)
 \\[info] elisp::Face Remapping"
   :type 'alist)
+
+
+(defvar mc--quiet-old-inhibit-message nil)
 
 (defvar mc--blink-cursor-old nil)
 (defvar mc--subtle-cursor-dead-windows nil
