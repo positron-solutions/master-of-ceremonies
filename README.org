@@ -7,7 +7,7 @@ This package is still pre-1.0.  The ~mc-focus~ command is super useful!  Therefo
 
 - display and annotate a region of text fullscreen for screen capture and
   playback with ~mc-focus~
-- set resolution with ~mc-resolution~
+- set a fixed frame resolution for capture with ~mc-fixed-frame-set~
 - subtle cursor mode ~mc-subtle-cursor-mode~
 - hide cursor mode ~mc-hide-cursor-mode~
 - no messages ~mc-quiet-mode~

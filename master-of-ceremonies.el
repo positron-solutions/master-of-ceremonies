@@ -99,7 +99,7 @@ This will be achieved unless another maximum is violated"
   "Directory path or function that returns a directory path.
 Directory path is a string."
 
-(defcustom mc-cap-resolutions
+(defcustom mc-fixed-frame-sizes
   '((youtube-short . (1080 . 1920))
     (1080p . (1920 . 1080))
     (2k . (2560 . 1440))
@@ -113,12 +113,10 @@ Form is one of:
 - (NAME . FULLSCREEN)
 
 NAME is a symbol, WIDTH and HEIGHT are integers, and FULLSCREEN
-is valid value for the `fullscreen' frame parameter."
-  :type '(cons (choice cons symbol))
-  :group 'master-of-ceremonies)
+is valid value for the `fullscreen' frame parameter.
 
 \\[info] elisp::Frame Parameters"
-  :type '(cons (choice cons symbol)))
+  :type '(cons symbol (choice cons symbol)))
 
 
 (defcustom mc-face-remap-presets '((bold . ((default :weight bold))))
@@ -549,70 +547,149 @@ Optional HIGHLIGHTS is a list of (BEG END)."
   (when highlights
     (mc--focus-apply-highlights highlights)))
 
-;; * Frame Resolution
+;; * Fixed Frame Size
 
-(transient-define-infix mc--cap-select-res ()
-  "Select the resolution."
-  :key "r" :argument "resolution=" :format "%k %v"
-  :choices mc-cap-resolutions
-  :class transient-option)
+(defun mc--fixed-frame-check-cleanup ()
+  "Clean up hook if not guarding any more frames."
+  (let ((frames (frame-list))
+        guarded)
+    (while (and frames (not guarded))
+      (when (frame-parameter (pop frames) 'mc--fixed-frame-notify)
+        (setq guarded t)))
+    (unless guarded
+      (remove-hook 'window-size-change-functions #'mc--fixed-frame-notify))))
 
-(transient-define-suffix mc--cap-set-frame-resolution (resolution)
-  "Set selected frame dimensions to RESOLUTION.
-RESOLUTION is a key into `mc-cap-resolutions'."
+(defun mc--fixed-frame-release (frame)
+  (set-frame-parameter frame 'mc--fixed-frame-goal nil)
+  (mc--fixed-frame-check-cleanup))
 
-  ;; TODO I think I wrote this to warm up at using the transient library.  It
-  ;; could have just as easily worked using standard interactive and even
-  ;; supported values outside the options.
-  (interactive
-   (if transient-current-command
-       (list
-        (transient-arg-value
-         "resolution="
-         (transient-args transient-current-command)))
-     nil))
+(defun mc--fixed-frame-notify (frame)
+  "Check if FRAME has the right size."
+  (if (frame-parameter frame 'fullscreen)
+      ;; Only frames with a non-fullscreen size are guarded, so we bail if they
+      ;; have acquired a fullscreen parameter.
+      (message "Frame: %s has become fullscreen.  Releasing." frame)
+      (mc--fixed-frame-release frame)
+    (when-let ((size (frame-parameter frame 'mc--fixed-frame-goal)))
+      (mc--fixed-frame-verify frame size))))
 
-  (pcase-let ((`(,key . ,value)
-               (assoc-string resolution mc-cap-resolutions)))
-    (let* ((resolution (consp value))
-           (width (and resolution (car value)))
-           (height (and resolution (cdr value))))
-      (if (eq key 'fullscreen)
-          ;; TODO this doesn't actually care about the value of fullscreen
-          (set-frame-parameter nil 'fullscreen 'fullboth)
-        (set-frame-parameter nil 'fullscreen nil)
+(defun mc--fixed-frame-verify (frame size)
+  "Verify FRAME is SIZE or schedule correction."
+  (let ((width-correction (- (car size) (frame-pixel-width frame)))
+        (height-correction (- (cdr size) (frame-pixel-height frame))))
+    (unless (and (= width-correction 0)
+                 (= height-correction 0))
+      (add-hook 'post-command-hook #'mc--fixed-frame-correct-all))))
 
-        ;; Even with `frame-resize-pixelwise' enabled, some discrepancies have
-        ;; been observed.  Setting and then correcting based on the outcome
-        ;; should fix most cases as the observed discrepancy is consistent
-        ;; between calls.  This will still work even if there is no discrepancy.
+;;;###autoload
+(defun mc-fixed-frame-release-all ()
+  "Release all guarded frames."
+  (interactive)
+  (let ((frames (frame-list)))
+    (while-let ((frame (pop frames)))
+      (set-frame-parameter frame 'mc--fixed-frame-goal nil))
+    (mc--fixed-frame-check-cleanup)))
 
-        ;; Who requests a pixel resolution when they don't enable a pixel size?
-        (unless frame-resize-pixelwise
-          (warn "`frame-resize-pixelwise' not enabled"))
+(defun mc--fixed-frame-correct (frame size &optional no-set)
+  "Check and correct that FRAME is SIZE.
+When optional NO-SET is non-nil, only check and set once.  Otherwise
+set, check and set."
+  ;; Its necessary to set once to find the correction needed to get the exact
+  ;; frame size we want.  This same function can set up for itself and will not
+  ;; do unnecssary work if no correction is needed.
+  (unless no-set (mc--fixed-frame-set frame size))
+  (let ((width-correction (- (car size) (frame-pixel-width frame)))
+        (height-correction (- (cdr size) (frame-pixel-height frame))))
+    (unless (and (= width-correction 0)
+                 (= height-correction 0))
+      (let ((frame-resize-pixelwise t))
+        (message "making corrections: %sw %sh"
+                 width-correction height-correction)
+        (set-frame-size frame
+                        (+ (car size) width-correction)
+                        (+ (cdr size) height-correction)
+                        t))
+      (message "size: %sw %sh"
+               (frame-pixel-width frame)
+               (frame-pixel-height frame)))))
 
+(defun mc--fixed-frame-correct-all ()
+  "Used as a single-call post-command hook to avoid thrashing."
+  ;; Updating the frame size during the `window-size-change-functions' is not a
+  ;; good idea.  Temporarily removing the hook was an ineffective strategy in
+  ;; this case.  Instead, this function runs in the post command hook and, if
+  ;; added, corrects all frames and removes itself.
+  (dolist (frame (frame-list))
+    (if (frame-parameter frame 'fullscreen)
+        ;; Only frames with a non-fullscreen size are guarded, so we bail if they
+        ;; have acquired a fullscreen parameter.
+        (message "Frame: %s has become fullscreen.  Releasing." frame)
+        (mc--fixed-frame-release frame)
+      (when-let ((size (frame-parameter frame 'mc--fixed-frame-goal)))
+        (mc--fixed-frame-correct frame size))))
+  (remove-hook 'post-command-hook #'mc--fixed-frame-correct-all))
+
+(defun mc--fixed-frame-set (frame size)
+  "Set SIZE on FRAME.
+SIZE is either a (H . W) cons or a symbol that can be used as a frame
+parameter for `fullscreen'."
+  (if (consp size)
+      (unless (and (= (car size) (frame-pixel-width frame))
+                   (= (cdr size) (frame-pixel-height frame)))
         (let ((frame-resize-pixelwise t))
-          (set-frame-size nil width height t)
-          (unless (and (eq (frame-pixel-width) width)
-                       (eq (frame-pixel-height) height))
-            (let ((width-correction (- width (frame-pixel-width)))
-                  (height-correction (- height (frame-pixel-height))))
-              (set-frame-size nil
-                              (+ width width-correction)
-                              (+ height height-correction)
-                              t)))))
+          (set-frame-parameter nil 'fullscreen nil)
+          (set-frame-size nil (car size) (cdr size) t)
+          (message "size: %sw %sh"
+                   (frame-pixel-width frame)
+                   (frame-pixel-height frame))
+          (mc--fixed-frame-correct frame size t)))
+    (set-frame-parameter nil 'fullscreen size)
+    (message "fullscreen: %s" size)))
 
-      (if resolution
-          (message "%s width: %s height: %s"
-                   key (frame-pixel-width) (frame-pixel-height))
-        (message "%s value: %s" key (frame-parameter nil 'fullscreen))))))
+;;;###autoload
+(defun mc-fixed-frame-set (frame-size)
+  "Set and maintain a fixed FRAME-SIZE.
+FRAME-SIZE is either a key for `mc-fixed-frame-sizes' or a valid value
+of it.
 
-(transient-define-prefix mc-set-resolution ()
-  "Configure frames for screen capture."
-  ["Options"
-   (mc--cap-select-res)]
-  ["Screen Aspect and Resolution"
-   ("s" "toggle resolution" mc--cap-set-frame-resolution)])
+Will correct the frame size if any window manager silliness attempts to
+make your frame another size.  Adds a hook to preserve the desired frame
+size.
+
+🚧 This feature is experimental and has some behaviors that may be
+confusing.  A fixed frame will be released if it is converted to full
+screen.  Only fixed frames have their size maintained.  When resizing
+with a mouse, the resize will appear successful, but then the size will
+revert after the first command.  With the right comination of hooks,
+these behaviors may become more consistent."
+  (interactive (list (completing-read
+                      "Select size: "
+                      (if (frame-parameter (selected-frame)
+                                           'mc--fixed-frame-revert)
+                          (cons 'revert mc-fixed-frame-sizes)
+                        mc-fixed-frame-sizes))))
+  (let* ((frame (selected-frame))
+         (revert (string= frame-size "revert"))
+         (new (cond
+               (revert
+                (frame-parameter (selected-frame) 'mc--fixed-frame-revert))
+               ((stringp frame-size)
+                (cdr (assoc-string frame-size mc-fixed-frame-sizes)))
+               ((symbolp frame-size)
+                (cdr (assq frame-size mc-fixed-frame-sizes)))
+               ((consp frame-size) frame-size)
+               (t (error "Unrecognized size: %s" frame-size))))
+         (current (if-let ((fullscreen (frame-parameter nil 'fullscreen)))
+                      fullscreen
+                    (cons (frame-pixel-width)
+                          (frame-pixel-height)))))
+    (set-frame-parameter nil 'mc--fixed-frame-revert (if revert nil current))
+    (mc--fixed-frame-set frame new)
+    (when (consp new)
+      (if revert
+          (set-frame-parameter frame 'mc--fixed-frame-goal nil)
+        (set-frame-parameter frame 'mc--fixed-frame-goal new)
+        (add-hook 'window-size-change-functions #'mc--fixed-frame-notify)))))
 
 (provide 'master-of-ceremonies)
 ;;; master-of-ceremonies.el ends here
