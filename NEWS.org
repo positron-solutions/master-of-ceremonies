@@ -1,17 +1,23 @@
 #+title:	What's New
 #+author:	Positron
 #+email:	contact@positron.solutions
-* v0.3.0 A New Hope
+* v0.3.0 A New Hope 🎄
 Nearly a complete rewrite.  After figuring out what belongs in dslide, this package has become more clearly defined.
 
 The ~mc-focus~ command remains the focal point.  Many of the tools like setting the size, hiding the cursor, or changing faces all serve to enhance ~mc-focus~.
 
 ⚠️ The naming and features have undergone heavy renaming and stuff.  Don't expect anything to be exactly the same from 0.2.0.  That version was unmaintained on Github for a while as my changes were only localy evolving.
-** Added
+** Added ✨
 - ~mc-dispatch~ to control all the things
-** Changed
+** Changed 📈
 - ~mc-face-remap~ is the old org mode remapping.  This version is flexible for all situations and supports multiple preset profiles
-** Removed
+- The variables controlling ~mc-focus~ have been renamed / revamped.  The new variables are:
+  + ~mc-focus-max-width-factor~
+  + ~mc-focus-max-height-factor~
+  + ~mc-focus-max-area-factor~
+  + ~mc-focus-max-scale~
+  These controls are both more flexible and intuitive than whatever was there before.  Naming is more consistent.  Please update.  🎅
+** Removed 💩
 - Everything related specifically to org mode like hiding markup
-** Fixed
+** Fixed 👷
 - Well, a lot more was fixed than is newly broken.  0.2.0 was barely a package at all

@@ -67,30 +67,32 @@ is the product of this and `mc-subtle-cursor-interval'.
 Values smaller than 0.013 will be treated as 0.013."
   :type 'number)
 
-(defcustom mc-focus-width-factor-max 0.7
-  "Focused text maximum width fraction.
-This is never exceeded"
-  :group 'master-of-ceremonies
-  :type 'float)
-
-(defcustom mc-focus-width-factor-min 0.5
-  "Focused text minimum width fraction.
-This will be achieved unless another maximum is violated."
-  :group 'master-of-ceremonies
-  :type 'float)
-
-(defcustom mc-focus-height-factor-max 0.7
+(defcustom mc-focus-max-height-factor 0.75
   "Focused text maximum height fraction.
 This is never exceeded."
-  :group 'master-of-ceremonies
   :type 'float)
 
-;; TODO what we need is a goal based on the height of lines that is constrained
-;; by the maximum based on visible area
-(defcustom mc-focus-height-factor-min 0.2
-  "Focused text minimum height fraction.
-This will be achieved unless another maximum is violated"
-  :group 'master-of-ceremonies
+(defcustom mc-focus-max-width-factor 0.75
+  "Focused text maximum width fraction.
+This is never exceeded."
+  :type 'float)
+
+(defcustom mc-focus-max-area-factor 0.40
+  "Focused text goal area.
+Area conveniently expresses the dependency between height and width.
+Text that is extremely long or extremely tall will be limited by
+`mc-focus-height-factor-max' and `mc-focus-width-factor-max'.  Text that
+is approximately screen-shaped will often be limited by this factor
+first.  Screen proportions are taken into account, so width usually has
+a larger effect on screen area than height."
+  :type 'float)
+
+(defcustom mc-focus-max-scale 20.0
+  "Maximum scale of focused text.
+When focusing extremely small regions, this value prevents the text from
+being scaled comically large.  If you just want to render single symbols
+or extremely short expressions, this setting can be used to control
+excessively large results."
   :type 'float)
 
 (defcustom mc-screenshot-path #'temporary-file-directory
@@ -341,15 +343,9 @@ are disabled, there may be no obvious user feedback ☠️"
 
 ;; * Focus fullscreen text
 
-(defsubst mc--focus-assert-mode ()
-  (unless (eq major-mode 'mc-focus-mode)
-    (user-error "Not in focus buffer")))
-
-(defun mc-focus-quit ()
-  "Fullscreen quit command."
-  (interactive)
-  (mc--focus-assert-mode)
-  (kill-buffer "*MC Focus*"))
+;; 🚧 This feature has mostly been implemented out of a collection of proofs of
+;; concept.  Do not trust or respect this code.  Most of it will need to be
+;; rewritten while adding new features.
 
 ;; only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun mc--maintain-margins ()
@@ -365,20 +361,30 @@ are disabled, there may be no obvious user feedback ☠️"
      (lambda (interval)
        (let ((begin (pop interval))
              (end (pop interval)))
-         (put-text-property
-          begin end
-          'face (plist-get (car interval) 'face)
-          clean-string)
-
-         ;; TODO pass along overlays and extract their 'face and 'display to
-         ;; compute the buffer visible string.
-
-         (put-text-property
-          begin end
-          'display (plist-get (car interval) 'display)
-          clean-string)))
+         (mapc
+          (lambda (prop-name)
+            (when-let ((prop (plist-get (car interval) prop-name)))
+              (put-text-property begin end prop-name prop clean-string)))
+          '(face invisible mouse-face display))))
      dirty-props)
     clean-string))
+
+(defun mc--focus-translate-overlays (text overlays beg end buffer)
+  (let ((max-pos (1+ (length text))))
+    (mapcar
+     (lambda (o)
+       (when-let* ((old-start (overlay-start o))
+                   (old-end (overlay-end o))
+                   (new-start (max (- old-start (1- beg)) 1))
+                   (new-end (min (- old-end (1- beg)) max-pos))
+                   (clone (make-overlay new-start new-end buffer))
+                   (props (overlay-properties o)))
+         (while-let ((key (pop props))
+                     (val (pop props)))
+           (overlay-put clone key val))
+         (overlay-put clone 'evaporate t)
+         clone))
+     (cdr overlays))))
 
 (defun mc--focus-cleanup ()
   (when mc--focus-old-window-config
@@ -386,19 +392,26 @@ are disabled, there may be no obvious user feedback ☠️"
   (setq mc--focus-old-window-config nil
         mc--focus-cleaned-text nil))
 
-(defun mc--display-fullscreen (text)
-  "Show TEXT with properties in a fullscreen window."
+;; ⚠️ This code is very much a collection of proofs of concept.  Very little of
+;; it will likely be stable or is of high quality.  You may want to reduce to
+;; just your use case before attempting to implement a new feature.
+(defun mc--display-fullscreen (text &optional invisibility-spec overlays beg end)
+  "Show TEXT with properties in a fullscreen window.
+🚧 This function is under active development.  The signature is likely
+to change to plist style, using keyword arguments to be more stable /
+user-friendly."
   (when-let ((old (get-buffer "*MC Focus*")))
     (kill-buffer old))
   (setq mc--focus-old-window-config (current-window-configuration))
-  (let ((buffer (get-buffer-create "*MC Focus*"))
-        (text (mc--focus-clean-properties text)))
+  (let* ((buffer (get-buffer-create "*MC Focus*"))
+         (text (mc--focus-clean-properties text)))
     (delete-other-windows)
     (let ((inhibit-message t))
       (switch-to-buffer buffer))
     (add-hook 'kill-buffer-hook #'mc--focus-cleanup nil t)
     (mc-focus-mode)
     (setq-local mode-line-format nil)
+    (setq buffer-invisibility-spec invisibility-spec)
     (show-paren-local-mode -1)
     (mc-hide-cursor-mode 1)
     (read-only-mode -1)
@@ -411,29 +424,34 @@ are disabled, there may be no obvious user feedback ☠️"
                         'line-prefix nil
                         'wrap-prefix nil))
 
-    (let* ((h (window-pixel-height))
-           (w (window-pixel-width))
-           (text-size (window-text-pixel-size))
-           ;; Not larger than any maximum
-           (max-text-scale (min (/ (* w mc-focus-width-factor-max)
-                                   (float (car text-size)))
-                                (/ (* h mc-focus-height-factor-max)
-                                   (float (cdr text-size)))))
-           ;; At least as big a the minimum
-           (min-scale (max (/ (* w mc-focus-width-factor-min)
-                              (float (car text-size)))
-                           (/ (* h mc-focus-height-factor-min)
-                              (float (cdr text-size)))))
-           ;; At least as big as the goal, but without exceeding the max
-           (scale (min max-text-scale min-scale))
-           (scale-overlay (make-overlay 1 (point-max)))
-           (default-background (face-attribute 'default :background)))
+    ;; apply translated overlays after buffer has text
+    (when (and overlays beg end)
+      (mc--focus-translate-overlays text overlays beg end buffer))
+    ;; TODO serialize overlays for playback
 
-      ;; Overrides faces but not inverse colors, which actually is kind of
-      ;; desirable for org-modern's TODO's
-      (overlay-put scale-overlay 'face
-                   `(:height ,scale :background ,default-background :extend t))
+    (let* ((w (window-pixel-width))
+           (h (window-pixel-height))
+           (window-pixel-area (* h w))
+           (text-pixel-size (window-text-pixel-size))
+           (text-pixel-w (float (car text-pixel-size)))
+           (text-pixel-h (float (cdr text-pixel-size)))
+           (text-pixel-area (* text-pixel-w text-pixel-h))
+           (max-scale-horizontal (/ (* w mc-focus-max-width-factor)
+                                    text-pixel-w))
+           (max-scale-vertical (/ (* h mc-focus-max-height-factor)
+                                  text-pixel-h))
+           (max-scale-by-area (/ (* window-pixel-area
+                                    mc-focus-max-area-factor)
+                                 text-pixel-area))
+           (scale (min max-scale-horizontal
+                       max-scale-vertical
+                       max-scale-by-area
+                       mc-focus-max-scale))
+           (scale-overlay (make-overlay 1 (point-max))))
+      (overlay-put scale-overlay 'face `(:height ,scale))
 
+      ;; Now that the text is its final size, adjust the margins and vertical
+      ;; spacing
       (let* ((h (window-pixel-height))
              (w (window-pixel-width))
              (text-size (window-text-pixel-size))
@@ -469,6 +487,11 @@ are disabled, there may be no obvious user feedback ☠️"
   "Modal controls for focus windows."
   :interactive nil)
 
+(defsubst mc--focus-assert-mode ()
+  (if-let ((buffer (get-buffer "*MC Focus*")))
+      (set-buffer buffer)
+    (user-error "No MC buffer found")))
+
 (defun mc-focus-highlight-clear ()
   "Delete overlays."
   (interactive)
@@ -476,6 +499,17 @@ are disabled, there may be no obvious user feedback ☠️"
   (setq mc--focus-highlights nil)
   (mapc #'delete-overlay mc--focus-highlight-overlays)
   (setq mc--focus-highlight-overlays nil))
+
+(put 'mc-focus-highlight-clear 'mode 'mc-focus-mode)
+
+(defun mc-focus-quit ()
+  "Fullscreen quit command."
+  (interactive)
+  (if-let ((buffer (get-buffer "*MC Focus*")))
+      (kill-buffer buffer)
+    (user-error "No MC buffer found")))
+
+(put 'mc-focus-quit 'mode 'mc-focus-mode)
 
 (defun mc-focus-highlight (beg end)
   "Use the shadow face around BEG and END."
@@ -494,6 +528,13 @@ are disabled, there may be no obvious user feedback ☠️"
   ;; unnecessary to deactivate the mark when called any other way
   (when (called-interactively-p 't)
     (deactivate-mark)))
+
+(put 'mc-focus-highlight 'mode 'mc-focus-mode)
+
+(defun mc-focus-toggle-invisibility ()
+  (error "not implemented"))
+
+(put 'mc-focus-toggle-invisibility 'mode 'mc-focus-mode)
 
 (defun mc--focus-apply-highlights (highlights)
   "Use to replay highlight from Elisp programs.
@@ -515,11 +556,9 @@ contained by some BEG END will have the shadow face applied."
     (kill-new (prin1-to-string expression)))
   (message "saved focus to kill ring"))
 
-;;;###autoload
-(defun mc-focus-region (beg end)
-  (interactive "r")
-  (mc--display-fullscreen (buffer-substring beg end)))
+(put 'mc-focus-toggle-invisibility  'mode 'mc-focus-mode)
 
+;;;###autoload
 (defun mc-focus-screenshot ()
   "Save a screenshot of the current frame as an SVG image."
   (interactive)
@@ -536,6 +575,17 @@ contained by some BEG END will have the shadow face applied."
     (with-temp-file path
       (insert data))
     (message "Saved to: %s" filename)))
+
+(put 'mc-focus-screenshot 'mode 'mc-focus-mode)
+
+;;;###autoload
+(defun mc-focus-region (beg end)
+  (interactive "r")
+  (mc--display-fullscreen
+   (buffer-substring beg end)
+   buffer-invisibility-spec
+   (overlays-in beg end)
+   beg end))
 
 ;;;###autoload
 (defun mc-focus-string (text)
@@ -555,7 +605,21 @@ Optional HIGHLIGHTS is a list of (BEG END)."
                         #'buffer-substring)
                       (region-beginning) (region-end))
            (read-string "enter focus text: "))))
-  (mc--display-fullscreen text)
+
+  ;; TODO translating overlays to rectangles....  Oh god.  What you need is to
+  ;; gather up each string and apply the properties for the overlays within its
+  ;; beg and end.
+
+  (if rectangle-mark-mode
+      (mc--display-fullscreen
+       text buffer-invisibility-spec)
+    (if (region-active-p)
+        (mc--display-fullscreen
+         text buffer-invisibility-spec
+         (overlays-in (region-beginning) (region-end))
+         (region-beginning) (region-end))
+      (mc--display-fullscreen
+       text buffer-invisibility-spec)))
   (when highlights
     (mc--focus-apply-highlights highlights)))
 
