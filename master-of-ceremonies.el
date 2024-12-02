@@ -765,8 +765,7 @@ these behaviors may become more consistent."
   default-text-scale-mode)
 
 (defun mc--dispatch-text-scale-mode-p ()
-  (with-current-buffer transient--shadowed-buffer
-    text-scale-mode))
+  text-scale-mode)
 
 (defun mc--dispatch-quiet-mode ()
   (format
@@ -779,18 +778,19 @@ these behaviors may become more consistent."
   "You are the MC.
 This is likely the command you want to bind globally to become familiar
 with MC commands and to make many adjustments at once."
+  :refresh-suffixes t
   [["Default Text Scale"
     (:info #'mc--dispatch-default-text-scale)
     ("+" "increase" default-text-scale-increase :transient t)
     ("-" "decrease" default-text-scale-decrease :transient t)
-    ;; TODO add inapt-if functions back in when they draw right
-    ("=" "reset" default-text-scale-reset :transient t)]
+    ("=" "reset" default-text-scale-reset :transient transient--do-call
+     :inapt-if-nil default-text-scale-mode)]
    ["Buffer Text Scale"
     (:info #'mc--dispatch-text-scale)
     ("t+" "increase" text-scale-increase :transient t)
     ("t-" "decrease" text-scale-decrease :transient t)
-    ;; TODO add inapt-if functions back in when they draw right
-    ("t=" "reset" text-scale-mode :transient t)]]
+    ("t=" "reset" text-scale-mode :transient transient--do-call
+     :inapt-if-not-nil text-scale-mode)]]
   ["Fixed Frame"
    ("s" mc-fixed-frame-set :transient t
     :description mc--dispatch-frame-size)
