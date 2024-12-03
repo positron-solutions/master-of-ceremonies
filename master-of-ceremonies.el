@@ -660,7 +660,7 @@ This just provides minor conveniences like pre-configured save path with
           (lambda (prop-name)
             (when-let ((prop (plist-get (car interval) prop-name)))
               (put-text-property begin end prop-name prop clean-string)))
-          '(face invisible display))))
+          '(face font-lock-face button invisible display))))
      dirty-props)
     clean-string))
 
