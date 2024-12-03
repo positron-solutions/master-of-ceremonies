@@ -4,8 +4,8 @@
 
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
-;; Version: 0.2.0
-;; Package-Requires: ((emacs "29.1"))
+;; Version: 0.3.0
+;; Package-Requires: ((emacs "30.0.90"))
 ;; Homepage: http://github.com/positron-solutions/master-of-ceremonies
 
 ;;; License:
