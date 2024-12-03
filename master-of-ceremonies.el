@@ -167,6 +167,8 @@ This timer calls `mc-subtle-cursor-timer-function' every
   "Whehter quiet mode was active before running MC.")
 (defvar-local mc--focus-old-window-config nil)
 
+(defvar mc--fixed-frame-timer nil)
+
 (defvar-local mc--face-remap-cookies nil)
 
 ;; * Mass Face Remapping
@@ -377,8 +379,8 @@ are disabled, there may be no obvious user feedback ☠️"
   (if (frame-parameter frame 'fullscreen)
       ;; Only frames with a non-fullscreen size are guarded, so we bail if they
       ;; have acquired a fullscreen parameter.
-      (message "Frame: %s has become fullscreen.  Releasing." frame)
-      (mc--fixed-frame-release frame)
+      (progn (message "Frame: %s has become fullscreen.  Releasing." frame)
+             (mc--fixed-frame-release frame))
     (when-let ((size (frame-parameter frame 'mc--fixed-frame-goal)))
       (mc--fixed-frame-verify frame size))))
 
@@ -387,8 +389,10 @@ are disabled, there may be no obvious user feedback ☠️"
   (let ((width-correction (- (car size) (frame-pixel-width frame)))
         (height-correction (- (cdr size) (frame-pixel-height frame))))
     (unless (and (= width-correction 0)
-                 (= height-correction 0))
-      (add-hook 'post-command-hook #'mc--fixed-frame-correct-all))))
+                 (= height-correction 0)
+                 (null mc--fixed-frame-timer))
+      (setq mc--fixed-frame-timer
+            (run-with-timer 0.0 nil #'mc--fixed-frame-correct-all)))))
 
 ;;;###autoload
 (defun mc-fixed-frame-release-all ()
@@ -428,15 +432,15 @@ set, check and set."
   ;; good idea.  Temporarily removing the hook was an ineffective strategy in
   ;; this case.  Instead, this function runs in the post command hook and, if
   ;; added, corrects all frames and removes itself.
+  (setq mc--fixed-frame-timer nil)
   (dolist (frame (frame-list))
     (if (frame-parameter frame 'fullscreen)
         ;; Only frames with a non-fullscreen size are guarded, so we bail if they
         ;; have acquired a fullscreen parameter.
-        (message "Frame: %s has become fullscreen.  Releasing." frame)
-        (mc--fixed-frame-release frame)
+        (progn (message "Frame: %s has become fullscreen.  Releasing." frame)
+               (mc--fixed-frame-release frame))
       (when-let ((size (frame-parameter frame 'mc--fixed-frame-goal)))
-        (mc--fixed-frame-correct frame size))))
-  (remove-hook 'post-command-hook #'mc--fixed-frame-correct-all))
+        (mc--fixed-frame-correct frame size)))))
 
 (defun mc--fixed-frame-set (frame size)
   "Set SIZE on FRAME.
