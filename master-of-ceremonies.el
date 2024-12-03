@@ -779,6 +779,20 @@ user-friendly."
         (setf (overlay-end scale-overlay) (point-max))))
     (read-only-mode 1)))
 
+(defvar-keymap mc-focus-mode-map
+  :suppress 'nodigits
+  "." #'mc--focus-cursor-toggle
+  "c" #'mc-face-remap-clear
+  "e" #'mc-quiet-mode
+  "h" #'mc-focus-dispatch
+  "l" #'mc-focus-highlight
+  "q" #'mc-focus-quit
+  "r" #'mc-face-remap
+  "s" #'mc-screenshot
+  "u" #'mc-focus-un-highlight
+  "U" #'mc-focus-highlight-clear
+  "w" #'mc-focus-kill-ring-save)
+
 (define-derived-mode mc-focus-mode special-mode
   "Modal controls for focus windows."
   :interactive nil)
@@ -1025,21 +1039,6 @@ Expect playback of saved focuses to be unstable."
    ("q" "quit" mc-focus-quit)])
 
 (put 'mc-focus-dispatch 'mode 'mc-focus-mode)
-
-(defvar-keymap mc-focus-mode-map
-  :suppress 'nodigits
-  "." #'mc-subtle-cursor-mode
-  "?" #'mc-hide-cursor-mode
-  "c" #'mc-face-remap-clear
-  "e" #'mc-quiet-mode
-  "h" #'mc-focus-dispatch
-  "l" #'mc-focus-highlight
-  "q" #'mc-focus-quit
-  "r" #'mc-face-remap
-  "s" #'mc-screenshot
-  "u" #'mc-focus-un-highlight
-  "U" #'mc-focus-highlight-clear
-  "w" #'mc-focus-kill-ring-save)
 
 (provide 'master-of-ceremonies)
 ;;; master-of-ceremonies.el ends here
