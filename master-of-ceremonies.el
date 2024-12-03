@@ -1045,6 +1045,7 @@ Expect playback of saved focuses to be unstable."
 ;; Keep this in sync with `mc-focus-mode-map`!
 (transient-define-prefix mc-focus-dispatch ()
   "Transient menu for MC Focus mode."
+  :transient-non-suffix t
   [["Highlights"
     ("l" "highlight" mc-focus-highlight)
     ("u" "un-highlight" mc-focus-highlight-clear
