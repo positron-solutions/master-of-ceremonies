@@ -1011,6 +1011,16 @@ Expect playback of saved focuses to be unstable."
         'face 'transient-value))
     "clear all"))
 
+(defun mc--focus-cursor-toggle ()
+  (interactive)
+  (if mc-subtle-cursor-mode
+      (mc-subtle-cursor-mode -1)
+    (mc-subtle-cursor-mode 1))
+  (unless mc-subtle-cursor-mode
+    (mc-hide-cursor-mode 1)))
+
+(put 'mc--focus-cursor-toggle 'mode 'mc-focus-mode)
+
 (transient-define-prefix mc-focus-dispatch ()
   "Transient menu for MC Focus mode."
   [["Highlights"
@@ -1030,8 +1040,7 @@ Expect playback of saved focuses to be unstable."
     ("w" "kill ring" mc-focus-kill-ring-save)]]
   [["Cursor"
     (:info #'mc--dispatch-cursor-mode)
-    ("?" "hide" mc-hide-cursor-mode)
-    ("." "subtle" mc-subtle-cursor-mode)]
+    ("." "toggle" mc--focus-cursor-toggle)]
    ["Echo area"
     ("e" mc-quiet-mode
      :description mc--dispatch-quiet-mode)]]
