@@ -422,7 +422,7 @@ set, check and set."
                         (+ (car size) width-correction)
                         (+ (cdr size) height-correction)
                         t))
-      (message "size: %sw %sh"
+      (message "corrected size: %sw %sh"
                (frame-pixel-width frame)
                (frame-pixel-height frame)))))
 
@@ -452,7 +452,7 @@ parameter for `fullscreen'."
         (let ((frame-resize-pixelwise t))
           (set-frame-parameter nil 'fullscreen nil)
           (set-frame-size nil (car size) (cdr size) t)
-          (message "size: %sw %sh"
+          (message "set size: %sw %sh"
                    (frame-pixel-width frame)
                    (frame-pixel-height frame))
           (mc--fixed-frame-correct frame size t)))
