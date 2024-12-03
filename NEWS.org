@@ -11,6 +11,7 @@ The ~mc-focus~ command remains the focal point.  Many of the tools like setting 
 - ~mc-dispatch~ to control all the things
 - ~mc-focus-highlight~ and ~mc-focus-un-highlight~  now support multiple highlighted spans
 - ~mc-focus~ now has ~mc-focus-dispatch~ to provide a magit like help / info interface to quickly learn the MC controls
+- ~mc-focus-default-remaps~ will apply ~mc-face-remap~ presets so you don't have to manually do common remaps.  The remaps are still interactive and can be manually tweaked for edge cases.
 ** Changed 📈
 - ~mc-face-remap~ is the old org mode remapping.  This version is flexible for all situations and supports multiple preset profiles
 - The variables controlling ~mc-focus~ have been renamed / revamped.  The new variables are:

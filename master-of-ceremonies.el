@@ -95,6 +95,13 @@ or extremely short expressions, this setting can be used to control
 excessively large results."
   :type 'float)
 
+(defcustom mc-focus-default-remaps '(org-block-no-background)
+  "A list of remap presets to apply to focused text.
+Each symbol is a key of `mc-face-remap-presets'.  You can still manually
+apply or clear remaps using `mc-face-remap' and `mc-face-remap-clear'.
+The defaults will just be turned on to save time in the usual cases."
+  :type '(list symbol))
+
 (defcustom mc-screenshot-path #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
@@ -121,7 +128,9 @@ is valid value for the `fullscreen' frame parameter.
                (choice (cons number number)
                        symbol)))
 
-(defcustom mc-face-remap-presets '((bold . ((default :weight bold))))
+(defcustom mc-face-remap-presets
+  '((bold . ((default :weight bold)))
+    (org-block-no-background . ((org-block :background nil :extend nil))))
   "Face remapping presets.
 Value is an alist.  Each entry should be a cons of SYMBOL PRESET.
 SYMBOL will be used to choose the PRESET. PRESET is an ALIST where each
@@ -130,7 +139,6 @@ forms understood by `face-remap-add-relative'.
 
 \\[info] elisp::Face Remapping"
   :type 'alist)
-
 
 (defvar mc--quiet-old-inhibit-message nil)
 
@@ -731,6 +739,9 @@ user-friendly."
                        mc-focus-max-scale))
            (scale-overlay (make-overlay 1 (point-max))))
       (overlay-put scale-overlay 'face `(:height ,scale))
+
+      (mapc (lambda (remap) (mc-face-remap remap t))
+            mc-focus-default-remaps)
 
       ;; Now that the text is its final size, adjust the margins and vertical
       ;; spacing
