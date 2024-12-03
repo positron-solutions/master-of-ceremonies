@@ -154,11 +154,11 @@ This timer calls `mc-subtle-cursor-timer-function' every
 
 (defvar-local mc--focus-highlight-overlays nil
   "Overlays used to focus text.")
-
 (defvar-local mc--focus-highlights nil
   "List of highlight regions for playback.")
 (defvar-local mc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
+;; TODO specified space is better
 (defvar-local mc--focus-margin-left nil)
 (defvar-local mc--focus-margin-right nil)
 (defvar-local mc--focus-old-subtle-cursor nil
@@ -191,6 +191,8 @@ KEEP-EXISTING"
   (interactive (list (mc--read-remap) current-prefix-arg))
   (unless keep-existing
     (mc-face-remap-clear))
+  ;; TODO anonymous remapping, perhaps informed by text properties at point to
+  ;; select the correct face?
   (let ((remap (if (symbolp remap)
                    (or (mc--read-remap remap)
                        (user-error "Remapping not found"))
@@ -730,6 +732,9 @@ user-friendly."
                         'wrap-prefix nil))
 
     ;; apply translated overlays after buffer has text
+    ;; ⚠️ This method is totally not going to work.  Translation, rectangle, and
+    ;; trimming all have to work together.  Also max line length support is
+    ;; needed for visual lines.
     (when (and overlays beg end)
       (mc--focus-translate-overlays text overlays beg end buffer))
     ;; TODO serialize overlays for playback
@@ -1021,6 +1026,7 @@ Expect playback of saved focuses to be unstable."
 
 (put 'mc--focus-cursor-toggle 'mode 'mc-focus-mode)
 
+;; Keep this in sync with `mc-focus-mode-map`!
 (transient-define-prefix mc-focus-dispatch ()
   "Transient menu for MC Focus mode."
   [["Highlights"
