@@ -209,9 +209,11 @@ KEEP-EXISTING"
   :group 'master-of-ceremonies
   (cond
    (mc-hide-cursor-mode
-    (when mc-subtle-cursor-mode
-      (mc-subtle-cursor-mode -1))
-    (setq-local cursor-type nil))
+    (if (minibufferp)
+        (mc-hide-cursor-mode -1)
+      (when mc-subtle-cursor-mode
+        (mc-subtle-cursor-mode -1))
+      (setq-local cursor-type nil)))
    (t
     (setq-local cursor-type (default-value 'cursor-type)))))
 
