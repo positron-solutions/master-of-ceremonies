@@ -717,7 +717,6 @@ user-friendly."
     (mc-focus-mode)
     (setq-local mode-line-format nil)
     (setq buffer-invisibility-spec invisibility-spec)
-    (show-paren-local-mode -1)
     (setq mc--focus-old-subtle-cursor
           mc-subtle-cursor-mode)
     (mc-hide-cursor-mode 1)
