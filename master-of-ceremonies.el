@@ -149,7 +149,6 @@ This timer calls `mc-subtle-cursor-timer-function' every
 
 (defvar-local mc--focus-highlights nil
   "List of highlight regions for playback.")
-
 (defvar-local mc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
 (defvar-local mc--focus-margin-left nil)
@@ -238,7 +237,7 @@ blink if appropriate."
   (or (and (fboundp 'w32--menu-bar-in-use)
            (w32--menu-bar-in-use))
       ;; XXX guarding this expression upsets the blink count and I don't know
-      ;; how it's supposd to work.
+      ;; how it's supposed to work.
       (setq mc-subtle-cursor-blinks-done (1+ mc-subtle-cursor-blinks-done)))
   ;; Each blink is two calls to this function.
   (when (and (> mc-subtle-cursor-blinks 0)
@@ -340,288 +339,6 @@ are disabled, there may be no obvious user feedback ☠️"
             inhibit-message t)))
    (t
     (setq inhibit-message mc--quiet-old-inhibit-message))))
-
-;; * Focus fullscreen text
-
-;; 🚧 This feature has mostly been implemented out of a collection of proofs of
-;; concept.  Do not trust or respect this code.  Most of it will need to be
-;; rewritten while adding new features.
-
-;; only add to the `buffer-list-update-hook' locally so we don't need to unhook
-(defun mc--maintain-margins ()
-  (when mc--focus-margin-left
-    (set-window-margins (selected-window)
-                        mc--focus-margin-left
-                        mc--focus-margin-right)))
-
-(defun mc--focus-clean-properties (text)
-  (let ((dirty-props (object-intervals text))
-        (clean-string (substring-no-properties text)))
-    (mapc
-     (lambda (interval)
-       (let ((begin (pop interval))
-             (end (pop interval)))
-         (mapc
-          (lambda (prop-name)
-            (when-let ((prop (plist-get (car interval) prop-name)))
-              (put-text-property begin end prop-name prop clean-string)))
-          '(face invisible mouse-face display))))
-     dirty-props)
-    clean-string))
-
-(defun mc--focus-translate-overlays (text overlays beg end buffer)
-  (let ((max-pos (1+ (length text))))
-    (mapcar
-     (lambda (o)
-       (when-let* ((old-start (overlay-start o))
-                   (old-end (overlay-end o))
-                   (new-start (max (- old-start (1- beg)) 1))
-                   (new-end (min (- old-end (1- beg)) max-pos))
-                   (clone (make-overlay new-start new-end buffer))
-                   (props (overlay-properties o)))
-         (while-let ((key (pop props))
-                     (val (pop props)))
-           (overlay-put clone key val))
-         (overlay-put clone 'evaporate t)
-         clone))
-     (cdr overlays))))
-
-(defun mc--focus-cleanup ()
-  (when mc--focus-old-window-config
-    (set-window-configuration mc--focus-old-window-config))
-  (setq mc--focus-old-window-config nil
-        mc--focus-cleaned-text nil))
-
-;; ⚠️ This code is very much a collection of proofs of concept.  Very little of
-;; it will likely be stable or is of high quality.  You may want to reduce to
-;; just your use case before attempting to implement a new feature.
-(defun mc--display-fullscreen (text &optional invisibility-spec overlays beg end)
-  "Show TEXT with properties in a fullscreen window.
-🚧 This function is under active development.  The signature is likely
-to change to plist style, using keyword arguments to be more stable /
-user-friendly."
-  (when-let ((old (get-buffer "*MC Focus*")))
-    (kill-buffer old))
-  (setq mc--focus-old-window-config (current-window-configuration))
-  (let* ((buffer (get-buffer-create "*MC Focus*"))
-         (text (mc--focus-clean-properties text)))
-    (delete-other-windows)
-    (let ((inhibit-message t))
-      (switch-to-buffer buffer))
-    (add-hook 'kill-buffer-hook #'mc--focus-cleanup nil t)
-    (mc-focus-mode)
-    (setq-local mode-line-format nil)
-    (setq buffer-invisibility-spec invisibility-spec)
-    (show-paren-local-mode -1)
-    (mc-hide-cursor-mode 1)
-    (read-only-mode -1)
-
-    ;; Before we start adding properties, save the input text without additional
-    ;; properties.
-    (setq-local mc--focus-cleaned-text text)
-
-    (insert (propertize text
-                        'line-prefix nil
-                        'wrap-prefix nil))
-
-    ;; apply translated overlays after buffer has text
-    (when (and overlays beg end)
-      (mc--focus-translate-overlays text overlays beg end buffer))
-    ;; TODO serialize overlays for playback
-
-    (let* ((w (window-pixel-width))
-           (h (window-pixel-height))
-           (window-pixel-area (* h w))
-           (text-pixel-size (window-text-pixel-size))
-           (text-pixel-w (float (car text-pixel-size)))
-           (text-pixel-h (float (cdr text-pixel-size)))
-           (text-pixel-area (* text-pixel-w text-pixel-h))
-           (max-scale-horizontal (/ (* w mc-focus-max-width-factor)
-                                    text-pixel-w))
-           (max-scale-vertical (/ (* h mc-focus-max-height-factor)
-                                  text-pixel-h))
-           (max-scale-by-area (/ (* window-pixel-area
-                                    mc-focus-max-area-factor)
-                                 text-pixel-area))
-           (scale (min max-scale-horizontal
-                       max-scale-vertical
-                       max-scale-by-area
-                       mc-focus-max-scale))
-           (scale-overlay (make-overlay 1 (point-max))))
-      (overlay-put scale-overlay 'face `(:height ,scale))
-
-      ;; Now that the text is its final size, adjust the margins and vertical
-      ;; spacing
-      (let* ((h (window-pixel-height))
-             (w (window-pixel-width))
-             (text-size (window-text-pixel-size))
-             (margin-left (/ (- w (car text-size)) 2.0))
-             (margin-cols (1- (floor (/ margin-left (frame-char-width)))))
-             (margin-top (/ (- h (cdr text-size)) 2.0))
-             (margin-lines (/ margin-top (frame-char-height))))
-        (set-window-margins nil margin-cols margin-cols)
-        (setq mc--focus-margin-left margin-cols
-              mc--focus-margin-right margin-cols)
-
-        (add-hook 'buffer-list-update-hook
-                  #'mc--maintain-margins
-                  nil t)
-
-        (goto-char 0)
-        (insert (propertize "\n" 'face `(:height ,margin-lines)))
-        (setf (overlay-start scale-overlay) 2)
-        (setf (overlay-end scale-overlay) (point-max))))
-    (read-only-mode 1)))
-
-(defvar-keymap mc-focus-mode-map
-  :parent special-mode-map
-  "q" #'mc-focus-quit
-  "l" #'mc-focus-highlight
-  "c" #'mc-hide-cursor-mode
-  "w" #'mc-focus-kill-ring-save
-  "s" #'mc-focus-screenshot
-  "u" #'mc-focus-highlight-clear)
-
-;;;###autoload
-(define-derived-mode mc-focus-mode special-mode
-  "Modal controls for focus windows."
-  :interactive nil)
-
-(defsubst mc--focus-assert-mode ()
-  (if-let ((buffer (get-buffer "*MC Focus*")))
-      (set-buffer buffer)
-    (user-error "No MC buffer found")))
-
-(defun mc-focus-highlight-clear ()
-  "Delete overlays."
-  (interactive)
-  (mc--focus-assert-mode)
-  (setq mc--focus-highlights nil)
-  (mapc #'delete-overlay mc--focus-highlight-overlays)
-  (setq mc--focus-highlight-overlays nil))
-
-(put 'mc-focus-highlight-clear 'mode 'mc-focus-mode)
-
-(defun mc-focus-quit ()
-  "Fullscreen quit command."
-  (interactive)
-  (if-let ((buffer (get-buffer "*MC Focus*")))
-      (kill-buffer buffer)
-    (user-error "No MC buffer found")))
-
-(put 'mc-focus-quit 'mode 'mc-focus-mode)
-
-(defun mc-focus-highlight (beg end)
-  "Use the shadow face around BEG and END."
-  (interactive "r")
-  (mc--focus-assert-mode)
-  (when mc--focus-highlight-overlays
-    (mc-focus-highlight-clear))
-  (push (list beg end) mc--focus-highlights)
-  (let ((ov-beg (make-overlay (point-min) beg))
-        (ov-end (make-overlay end (point-max))))
-    ;; TODO customize
-    (overlay-put ov-beg 'face 'shadow)
-    (overlay-put ov-end 'face 'shadow)
-    (push ov-beg mc--focus-highlight-overlays)
-    (push ov-end mc--focus-highlight-overlays))
-  ;; unnecessary to deactivate the mark when called any other way
-  (when (called-interactively-p 't)
-    (deactivate-mark)))
-
-(put 'mc-focus-highlight 'mode 'mc-focus-mode)
-
-(defun mc-focus-toggle-invisibility ()
-  (error "not implemented"))
-
-(put 'mc-focus-toggle-invisibility 'mode 'mc-focus-mode)
-
-(defun mc--focus-apply-highlights (highlights)
-  "Use to replay highlight from Elisp programs.
-HIGHLIGHTS is a list of lists of BEG END to be highlighted.  Regions not
-contained by some BEG END will have the shadow face applied."
-  ;; TODO support multi-region highlight
-  (when (> (length highlights) 1)
-    (error "Multiple highlights not supported yet."))
-  (apply #'mc-focus-highlight (car highlights)))
-
-(defun mc-focus-kill-ring-save ()
-  "Save the focused text and highlights to a playback expression."
-  (interactive)
-  (mc--focus-assert-mode)
-  (let ((expression
-         `(mc-focus
-           ,mc--focus-cleaned-text
-           ',mc--focus-highlights)))
-    (kill-new (prin1-to-string expression)))
-  (message "saved focus to kill ring"))
-
-(put 'mc-focus-toggle-invisibility  'mode 'mc-focus-mode)
-
-;;;###autoload
-(defun mc-focus-screenshot ()
-  "Save a screenshot of the current frame as an SVG image."
-  (interactive)
-  (mc--focus-assert-mode)
-  (let* ((timestamp (format-time-string "%F-%H:%M:%S" (current-time)))
-         (filename (format "screenshot-%s.svg" timestamp))
-         (dir (if (stringp mc-screenshot-path)
-                  mc-screenshot-path
-                (funcall mc-screenshot-path)))
-         (path (concat dir filename))
-         (data (x-export-frames nil 'svg)))
-    (unless (file-exists-p dir)
-      (make-directory dir t))
-    (with-temp-file path
-      (insert data))
-    (message "Saved to: %s" filename)))
-
-(put 'mc-focus-screenshot 'mode 'mc-focus-mode)
-
-;;;###autoload
-(defun mc-focus-region (beg end)
-  (interactive "r")
-  (mc--display-fullscreen
-   (buffer-substring beg end)
-   buffer-invisibility-spec
-   (overlays-in beg end)
-   beg end))
-
-;;;###autoload
-(defun mc-focus-string (text)
-  (interactive "Menter focus text: ")
-  (mc--display-fullscreen text))
-
-;;;###autoload
-(defun mc-focus (text &optional highlights)
-  "Focus selected region or prompt for TEXT.
-Optional HIGHLIGHTS is a list of (BEG END)."
-  (interactive
-   (list (if (region-active-p)
-             (funcall (if rectangle-mark-mode
-                          (lambda (beg end)
-                            (string-join (extract-rectangle beg end)
-                                         "\n"))
-                        #'buffer-substring)
-                      (region-beginning) (region-end))
-           (read-string "enter focus text: "))))
-
-  ;; TODO translating overlays to rectangles....  Oh god.  What you need is to
-  ;; gather up each string and apply the properties for the overlays within its
-  ;; beg and end.
-
-  (if rectangle-mark-mode
-      (mc--display-fullscreen
-       text buffer-invisibility-spec)
-    (if (region-active-p)
-        (mc--display-fullscreen
-         text buffer-invisibility-spec
-         (overlays-in (region-beginning) (region-end))
-         (region-beginning) (region-end))
-      (mc--display-fullscreen
-       text buffer-invisibility-spec)))
-  (when highlights
-    (mc--focus-apply-highlights highlights)))
 
 ;; * Fixed Frame Size
 
@@ -838,6 +555,7 @@ these behaviors may become more consistent."
        (propertize "on " 'face 'success)
      (propertize "off" 'face 'shadow))))
 
+;;;###autoload
 (transient-define-prefix mc-dispatch ()
   "You are the MC.
 This is likely the command you want to bind globally to become familiar
@@ -854,7 +572,7 @@ with MC commands and to make many adjustments at once."
     ("t+" "increase" text-scale-increase :transient t)
     ("t-" "decrease" text-scale-decrease :transient t)
     ("t=" "reset" text-scale-mode :transient transient--do-call
-     :inapt-if-not-nil text-scale-mode)]]
+     :inapt-if-non-nil text-scale-mode)]]
   ["Fixed Frame"
    ("s" mc-fixed-frame-set :transient t
     :description mc--dispatch-frame-size)
@@ -866,13 +584,438 @@ with MC commands and to make many adjustments at once."
     :description mc--dispatch-faces-remapped)]
   [["Cursor"
     (:info #'mc--dispatch-cursor-mode)
-    ("h" "hide" mc-hide-cursor-mode :transient t)
+    ("?" "hide" mc-hide-cursor-mode :transient t)
     ("." "subtle" mc-subtle-cursor-mode :transient t)]
    ["Mode Line"
     ("m" "hide" hide-mode-line-mode :transient t)]
    ["Echo area"
-    ("q" mc-quiet-mode :transient t
+    ("e" mc-quiet-mode :transient t
      :description mc--dispatch-quiet-mode)]])
+
+;; * Screenshot
+
+;; 🚧 If you consider working on this feature, support for other file type
+;; support and naming support for workflows like animation are good to add along
+;; the way.  There are other packages for building gifs etc that would be
+;; welcome in MC as optional dependencies.
+
+(defun mc--screenshot-save-path ()
+  (if (stringp mc-screenshot-path)
+      mc-screenshot-path
+    (if (functionp mc-screenshot-path)
+        (or (funcall mc-screenshot-path)
+            default-directory)
+      default-directory)))
+
+(defun mc-screenshot ()
+  "Save a screenshot of the current frame as an SVG image.
+This just provides minor conveniences like pre-configured save path with
+`mc-screenshot-path'."
+  (interactive)
+  (let* ((timestamp (format-time-string "%F-%H:%M:%S" (current-time)))
+         (filename (format "screenshot-%s.svg" timestamp))
+         (dir (mc--screenshot-save-path))
+         (path (concat dir filename))
+         (data (x-export-frames nil 'svg)))
+    (unless (file-exists-p dir)
+      (make-directory dir t))
+    (with-temp-file path
+      (insert data))
+    (message "Saved to: %s" filename)))
+
+;; * Focus fullscreen text
+
+;; 🚧 This feature has mostly been implemented out of a collection of proofs of
+;; concept.  Do not trust or respect this code.  Most of it will need to be
+;; rewritten while adding new features.
+
+;; only add to the `buffer-list-update-hook' locally so we don't need to unhook
+(defun mc--maintain-margins ()
+  (when mc--focus-margin-left
+    (set-window-margins (selected-window)
+                        mc--focus-margin-left
+                        mc--focus-margin-right)))
+
+(defun mc--focus-clean-properties (text)
+  (let ((dirty-props (object-intervals text))
+        (clean-string (substring-no-properties text)))
+    (mapc
+     (lambda (interval)
+       (let ((begin (pop interval))
+             (end (pop interval)))
+         (mapc
+          (lambda (prop-name)
+            (when-let ((prop (plist-get (car interval) prop-name)))
+              (put-text-property begin end prop-name prop clean-string)))
+          '(face invisible display))))
+     dirty-props)
+    clean-string))
+
+(defun mc--focus-translate-overlays (text overlays beg _end buffer)
+  (let ((max-pos (1+ (length text))))
+    (mapcar
+     (lambda (o)
+       (when-let* ((old-start (overlay-start o))
+                   (old-end (overlay-end o))
+                   (new-start (max (- old-start (1- beg)) 1))
+                   (new-end (min (- old-end (1- beg)) max-pos))
+                   (clone (make-overlay new-start new-end buffer))
+                   (props (overlay-properties o)))
+         (while-let ((key (pop props))
+                     (val (pop props)))
+           (overlay-put clone key val))
+         (overlay-put clone 'evaporate t)
+         clone))
+     (cdr overlays))))
+
+(defun mc--focus-cleanup ()
+  (when mc--focus-old-window-config
+    (set-window-configuration mc--focus-old-window-config))
+  (setq mc--focus-old-window-config nil
+        mc--focus-cleaned-text nil))
+
+;; ⚠️ This code is very much a collection of proofs of concept.  Very little of
+;; it will likely be stable or is of high quality.  You may want to reduce to
+;; just your use case before attempting to implement a new feature.
+(defun mc--display-fullscreen (text &optional invisibility-spec overlays beg end)
+  "Show TEXT with properties in a fullscreen window.
+🚧 This function is under active development.  The signature is likely
+to change to plist style, using keyword arguments to be more stable /
+user-friendly."
+  (when-let ((old (get-buffer "*MC Focus*")))
+    (kill-buffer old))
+  (setq mc--focus-old-window-config (current-window-configuration))
+  (let* ((buffer (get-buffer-create "*MC Focus*"))
+         (text (mc--focus-clean-properties text)))
+    (delete-other-windows)
+    (let ((inhibit-message t))
+      (switch-to-buffer buffer))
+    (add-hook 'kill-buffer-hook #'mc--focus-cleanup nil t)
+    (mc-focus-mode)
+    (setq-local mode-line-format nil)
+    (setq buffer-invisibility-spec invisibility-spec)
+    (show-paren-local-mode -1)
+    (mc-hide-cursor-mode 1)
+    (read-only-mode -1)
+
+    ;; Before we start adding properties, save the input text without additional
+    ;; properties.
+    (setq-local mc--focus-cleaned-text text)
+
+    (insert (propertize text
+                        'line-prefix nil
+                        'wrap-prefix nil))
+
+    ;; apply translated overlays after buffer has text
+    (when (and overlays beg end)
+      (mc--focus-translate-overlays text overlays beg end buffer))
+    ;; TODO serialize overlays for playback
+
+    (let* ((w (window-pixel-width))
+           (h (window-pixel-height))
+           (window-pixel-area (* h w))
+           (text-pixel-size (window-text-pixel-size))
+           (text-pixel-w (float (car text-pixel-size)))
+           (text-pixel-h (float (cdr text-pixel-size)))
+           (text-pixel-area (* text-pixel-w text-pixel-h))
+           (max-scale-horizontal (/ (* w mc-focus-max-width-factor)
+                                    text-pixel-w))
+           (max-scale-vertical (/ (* h mc-focus-max-height-factor)
+                                  text-pixel-h))
+           (max-scale-by-area (/ (* window-pixel-area
+                                    mc-focus-max-area-factor)
+                                 text-pixel-area))
+           (scale (min max-scale-horizontal
+                       max-scale-vertical
+                       max-scale-by-area
+                       mc-focus-max-scale))
+           (scale-overlay (make-overlay 1 (point-max))))
+      (overlay-put scale-overlay 'face `(:height ,scale))
+
+      ;; Now that the text is its final size, adjust the margins and vertical
+      ;; spacing
+      (let* ((h (window-pixel-height))
+             (w (window-pixel-width))
+             (text-size (window-text-pixel-size))
+             (margin-left (/ (- w (car text-size)) 2.0))
+             (margin-cols (1- (floor (/ margin-left (frame-char-width)))))
+             (margin-top (/ (- h (cdr text-size)) 2.0))
+             (margin-lines (/ margin-top (frame-char-height))))
+        (set-window-margins nil margin-cols margin-cols)
+        (setq mc--focus-margin-left margin-cols
+              mc--focus-margin-right margin-cols)
+
+        (add-hook 'buffer-list-update-hook
+                  #'mc--maintain-margins
+                  nil t)
+
+        (goto-char 0)
+        (insert (propertize "\n" 'face `(:height ,margin-lines)))
+        (setf (overlay-start scale-overlay) 2)
+        (setf (overlay-end scale-overlay) (point-max))))
+    (read-only-mode 1)))
+
+(define-derived-mode mc-focus-mode special-mode
+  "Modal controls for focus windows."
+  :interactive nil)
+
+(defsubst mc--focus-assert-mode ()
+  (if-let ((buffer (get-buffer "*MC Focus*")))
+      (set-buffer buffer)
+    (user-error "No MC buffer found")))
+
+(defun mc-focus-highlight-clear ()
+  "Delete overlays."
+  (interactive)
+  (mc--focus-assert-mode)
+  (unless mc--focus-highlights
+    (user-error "No highlights to un-highlight"))
+  (setq mc--focus-highlights nil)
+  (mapc #'delete-overlay mc--focus-highlight-overlays)
+  (setq mc--focus-highlight-overlays nil))
+
+(put 'mc-focus-highlight-clear 'mode 'mc-focus-mode)
+
+(defun mc-focus-quit ()
+  "Fullscreen quit command."
+  (interactive)
+  (if-let ((buffer (get-buffer "*MC Focus*")))
+      (kill-buffer buffer)
+    (user-error "No MC buffer found")))
+
+(put 'mc-focus-quit 'mode 'mc-focus-mode)
+
+(defun mc-focus-highlight (beg end)
+  "Highlight region between BEG and END.
+The shadow face will be applied to remaining unhighlighted regions."
+  (interactive "r")
+  (mc--focus-assert-mode)
+  (mc--focus-highlight beg end)
+  ;; unnecessary to deactivate the mark when called any other way
+  (when (called-interactively-p 't)
+    (deactivate-mark))
+  (mc--focus-apply-highlights mc--focus-highlights))
+
+(put 'mc-focus-highlight 'mode 'mc-focus-mode)
+
+(defun mc-focus-un-highlight (beg end)
+  "Remove highlight in region between BEG and END.
+The shadow face will be added to the region between BEG and END."
+  (interactive "r")
+  (mc--focus-assert-mode)
+  (unless mc--focus-highlights
+    (user-error "No highlights to un-highlight"))
+  (mc--focus-un-highlight beg end)
+  ;; unnecessary to deactivate the mark when called any other way
+  (when (called-interactively-p 't)
+    (deactivate-mark))
+  (mc--focus-apply-highlights mc--focus-highlights))
+
+(put 'mc-focus-un-highlight 'mode 'mc-focus-mode)
+
+(defun mc--focus-apply-highlights (highlights)
+  "Use to replay HIGHLIGHTS from Elisp programs.
+HIGHLIGHTS is a list of conses of BEG END to be highlighted.  Regions
+not contained by some BEG END will have the shadow face applied.
+HIGHLIGHTS must be partially ordered and with no overlaps or else
+behavior is not guaranteed."
+  (let (un-highlights left right)
+    (mapc #'delete-overlay mc--focus-highlight-overlays) ; 🤡 almost forgot
+    ;; no highlights means shadow everything
+    (unless highlights
+      (push (cons (point-min) (point-max))
+            un-highlights))
+    ;; before the first highlight
+    (unless (or (null highlights)
+                (and highlights
+                     (= (caar highlights) (point-min))))
+      (push (cons (point-min) (caar highlights))
+            un-highlights))
+    ;; un-highlight in between every two highlights
+    (setq left (pop highlights))
+    (setq right (pop highlights))
+    (while right
+      (push (cons (cdr left) (car right))
+            un-highlights)
+      (setq left right)
+      (setq right (pop highlights)))
+    ;; after the last highlight
+    (unless (or (null left)
+                (and left (= (cdr left) (point-max))))
+      (push (cons (cdr left) (point-max))
+            un-highlights))
+    ;; apply all unhighlights
+    (dolist (h un-highlights)
+      (let ((o (make-overlay (car h) (cdr h))))
+        ;; TODO customize un-highlight face
+        (overlay-put o 'face 'shadow)
+        (push o mc--focus-highlight-overlays)))))
+
+(defun mc--focus-un-highlight (beg end)
+  "Remove region between BEG and END from highlights.
+Preserves total ordering of highlighted spans."
+  (let ((highlights mc--focus-highlights)
+        keep)
+    (while-let ((h (pop highlights)))
+      ;; If BEG and END include either or both ends of a highlight, we have to
+      ;; modify spans.
+      (let ((h-beg-interior (and (>= (car h) beg)
+                                 (<= (car h) end)))
+            (h-end-interior (and (>= (cdr h) beg)
+                                 (<= (cdr h) end)))
+            (h-beg-before (< (car h) beg))
+            (h-end-after (> (cdr h) end)))
+        (cond
+         ;; fully contained highlights are omitted
+         ((and h-beg-interior h-end-interior) nil)
+         ;; intersected highlights are trimmed
+         (h-beg-interior (push (cons end (cdr h)) keep))
+         (h-end-interior (push (cons (car h) beg) keep))
+         ;; split highlights that contain un-highlight
+         ((and h-beg-before h-end-after)
+          (push (cons (car h) beg) keep)
+          (push (cons end (cdr h)) keep))
+         (t (push h keep)))))
+    (setq mc--focus-highlights (nreverse keep))))
+
+(defun mc--focus-highlight (beg end)
+  "Add region between BEG and END to highlights.
+Preserves total ordering of highlighted spans."
+  (let ((highlights mc--focus-highlights)
+        keep merge)
+    ;; push all regions ending before beg
+    (while (and (car highlights)
+                (< (cdar highlights) beg))
+      (push (pop highlights) keep))
+    ;; merge all regions that overlap or are adjacent
+    (setq merge (cons beg end))
+    (while (and highlights
+                (or (and (>= (caar highlights) beg)
+                         (<= (caar highlights) end))
+                    (and (>= (cdar highlights) beg)
+                         (<= (cdar highlights) end))))
+      (setq merge (cons (min (caar highlights) beg)
+                        (max (cdar highlights) end)))
+      (pop highlights))
+    (push merge keep)
+    ;; push remaining regions
+    (while highlights
+      (push (pop highlights) keep))
+    (setq mc--focus-highlights (nreverse keep))))
+
+(defun mc-focus-kill-ring-save ()
+  "Save the focused text and highlights to a playback expression."
+  (interactive)
+  ;; TODO kill ring save needs a lot of updates for playback.  overlays and
+  ;; invisibility spec are completely unsupported.
+  (mc--focus-assert-mode)
+  (let ((expression
+         `(mc-focus
+           ,mc--focus-cleaned-text
+           ',mc--focus-highlights)))
+    (kill-new (prin1-to-string expression)))
+  (message "saved focus to kill ring"))
+
+(put 'mc-focus-kill-ring-save  'mode 'mc-focus-mode)
+
+;;;###autoload
+(defun mc-focus (text &optional highlights)
+  "Focus selected region or prompt for TEXT.
+Optional HIGHLIGHTS is a list of (BEG END).
+
+🚧 This function and its signature are likely to evolve.  The base
+interactive use case of highlighting a region is stable and very useful.
+Expect playback of saved focuses to be unstable."
+  ;; 🚧 The code looks ugly.  It is.  It just needs a bit of re-architecture to
+  ;; handle rectangles and overlay merging.  Invisibility and text property
+  ;; support were recently hacked in.  As a POC, it even kind of does images.
+  ;; With face remapping, it can re-style focused regions to remove annoying
+  ;; artifacts of the area the text was extracted from.  Hell maybe we can +/-
+  ;; support for diffs by merging more text properties.  It's bad, but it's so
+  ;; good, I had to ship it bad.
+  (interactive
+   (list (if (region-active-p)
+             (funcall (if rectangle-mark-mode
+                          (lambda (beg end)
+                            (string-join (extract-rectangle beg end)
+                                         "\n"))
+                        #'buffer-substring)
+                      (region-beginning) (region-end))
+           (read-string "enter focus text: "))))
+
+  ;; TODO translating overlays to rectangles....  Oh god.  What you need is to
+  ;; gather up each string and extract the properties and overlays and use the
+  ;; rectangle case as the base case for merging / toggling inside the focus
+  ;; buffer.
+
+  (if rectangle-mark-mode
+      (mc--display-fullscreen
+       text buffer-invisibility-spec)
+    (if (region-active-p)
+        (mc--display-fullscreen
+         text buffer-invisibility-spec
+         (overlays-in (region-beginning) (region-end))
+         (region-beginning) (region-end))
+      (mc--display-fullscreen
+       text buffer-invisibility-spec)))
+  (when highlights
+    (mc--focus-apply-highlights highlights)))
+
+(defun mc--focus-dispatch-screenshot-path ()
+  (propertize (mc--screenshot-save-path) 'face 'transient-value))
+
+(defun mc--focus-dispatch-highlights ()
+  (if mc--focus-highlights
+      (concat
+       "clear "
+       (propertize
+        (format "%s highlights" (length mc--focus-highlights))
+        'face 'transient-value))
+    "clear all"))
+
+(transient-define-prefix mc-focus-dispatch ()
+  "Transient menu for MC Focus mode."
+  [["Highlights"
+    ("l" "highlight" mc-focus-highlight)
+    ("u" "un-highlight" mc-focus-highlight-clear
+     :inapt-if-nil mc--focus-highlights)
+    ("U" mc-focus-highlight-clear
+     :inapt-if-nil mc--focus-highlights
+     :description mc--focus-dispatch-highlights)]
+   ["Face Remapping"
+    ("r" "remap" mc-face-remap)
+    ("c" mc-face-remap-clear
+     :description mc--dispatch-faces-remapped)]
+   ["Save"
+    (:info #'mc--focus-dispatch-screenshot-path)
+    ("s" "screenshot" mc-screenshot)
+    ("w" "kill ring" mc-focus-kill-ring-save)]]
+  [["Cursor"
+    (:info #'mc--dispatch-cursor-mode)
+    ("?" "hide" mc-hide-cursor-mode)
+    ("." "subtle" mc-subtle-cursor-mode)]
+   ["Echo area"
+    ("e" mc-quiet-mode
+     :description mc--dispatch-quiet-mode)]]
+  ["Quit"
+   ("q" "quit" mc-focus-quit)])
+
+(put 'mc-focus-dispatch 'mode 'mc-focus-mode)
+
+(defvar-keymap mc-focus-mode-map
+  :suppress 'nodigits
+  "." #'mc-subtle-cursor-mode
+  "?" #'mc-hide-cursor-mode
+  "c" #'mc-face-remap-clear
+  "e" #'mc-quiet-mode
+  "h" #'mc-focus-dispatch
+  "l" #'mc-focus-highlight
+  "q" #'mc-focus-quit
+  "r" #'mc-face-remap
+  "s" #'mc-screenshot
+  "u" #'mc-focus-un-highlight
+  "U" #'mc-focus-highlight-clear
+  "w" #'mc-focus-kill-ring-save)
 
 (provide 'master-of-ceremonies)
 ;;; master-of-ceremonies.el ends here

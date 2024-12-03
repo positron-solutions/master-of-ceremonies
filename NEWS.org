@@ -9,6 +9,8 @@ The ~mc-focus~ command remains the focal point.  Many of the tools like setting 
 ⚠️ The naming and features have undergone heavy renaming and stuff.  Don't expect anything to be exactly the same from 0.2.0.  That version was unmaintained on Github for a while as my changes were only localy evolving.
 ** Added ✨
 - ~mc-dispatch~ to control all the things
+- ~mc-focus-highlight~ and ~mc-focus-un-highlight~  now support multiple highlighted spans
+- ~mc-focus~ now has ~mc-focus-dispatch~ to provide a magit like help / info interface to quickly learn the MC controls
 ** Changed 📈
 - ~mc-face-remap~ is the old org mode remapping.  This version is flexible for all situations and supports multiple preset profiles
 - The variables controlling ~mc-focus~ have been renamed / revamped.  The new variables are:
