@@ -512,10 +512,12 @@ these behaviors may become more consistent."
 
 (defun mc--dispatch-frame-size ()
   (format
-   "set %s"
-   (if-let ((full (frame-parameter nil 'fullscreen)))
-       (propertize (symbol-name full) 'face 'transient-value)
-     (propertize (format "%s %s" (frame-pixel-width) (frame-pixel-height))))))
+   "current: %s"
+   (propertize
+    (if-let ((full (frame-parameter nil 'fullscreen)))
+        (symbol-name full)
+      (format "%s %s" (frame-pixel-width) (frame-pixel-height)))
+    'face 'transient-value)))
 
 (defun mc--dispatch-fixed-frames ()
   (let ((frames (frame-list))
@@ -594,8 +596,8 @@ with MC commands and to make many adjustments at once."
     ("t=" "reset" text-scale-mode :transient transient--do-call
      :inapt-if-non-nil text-scale-mode)]]
   ["Fixed Frame"
-   ("s" mc-fixed-frame-set :transient t
-    :description mc--dispatch-frame-size)
+   (:info #'mc--dispatch-frame-size)
+   ("s" "set" mc-fixed-frame-set :transient t)
    ("R" mc-fixed-frame-release-all :transient t
     :description mc--dispatch-fixed-frames)]
   ["Face Remapping"
