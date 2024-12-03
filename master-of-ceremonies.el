@@ -161,7 +161,9 @@ This timer calls `mc-subtle-cursor-timer-function' every
   "Copy of cleaned input text for replay expressions.")
 (defvar-local mc--focus-margin-left nil)
 (defvar-local mc--focus-margin-right nil)
-(defvar mc--focus-old-window-config nil)
+(defvar-local mc--focus-old-subtle-cursor nil
+  "Whether subtle cursor was active before running MC.")
+(defvar-local mc--focus-old-window-config nil)
 
 (defvar-local mc--face-remap-cookies nil)
 
@@ -639,12 +641,11 @@ This just provides minor conveniences like pre-configured save path with
 ;; concept.  Do not trust or respect this code.  Most of it will need to be
 ;; rewritten while adding new features.
 
-;; only add to the `buffer-list-update-hook' locally so we don't need to unhook
-(defun mc--maintain-margins ()
-  (when mc--focus-margin-left
-    (set-window-margins (selected-window)
-                        mc--focus-margin-left
-                        mc--focus-margin-right)))
+;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
+(defun mc--focus-refresh (window)
+  (if (eq (window-buffer window) (get-buffer "*MC Focus*"))
+      (set-window-margins
+       window mc--focus-margin-left mc--focus-margin-right)))
 
 (defun mc--focus-clean-properties (text)
   (let ((dirty-props (object-intervals text))
@@ -679,6 +680,16 @@ This just provides minor conveniences like pre-configured save path with
      (cdr overlays))))
 
 (defun mc--focus-cleanup ()
+  (remove-hook 'window-state-change-functions #'mc--focus-refresh)
+  ;; hidden cursor is buffer local and naturally goes away, but subtle cursor is
+  ;; global and needs to be turned off if it wasn't on when focusing began.
+  (if (not mc--focus-old-subtle-cursor)
+      (when mc-subtle-cursor-mode
+        (mc-subtle-cursor-mode -1))
+    (setq mc--focus-old-subtle-cursor nil)
+    (unless mc-subtle-cursor-mode
+      (mc-subtle-cursor-mode 1)))
+
   (when mc--focus-old-window-config
     (set-window-configuration mc--focus-old-window-config))
   (setq mc--focus-old-window-config nil
@@ -705,6 +716,8 @@ user-friendly."
     (setq-local mode-line-format nil)
     (setq buffer-invisibility-spec invisibility-spec)
     (show-paren-local-mode -1)
+    (setq mc--focus-old-subtle-cursor
+          mc-subtle-cursor-mode)
     (mc-hide-cursor-mode 1)
     (read-only-mode -1)
 
@@ -758,9 +771,7 @@ user-friendly."
         (setq mc--focus-margin-left margin-cols
               mc--focus-margin-right margin-cols)
 
-        (add-hook 'buffer-list-update-hook
-                  #'mc--maintain-margins
-                  nil t)
+        (add-hook 'window-state-change-functions #'mc--focus-refresh)
 
         (goto-char 0)
         (insert (propertize "\n" 'face `(:height ,margin-lines)))
