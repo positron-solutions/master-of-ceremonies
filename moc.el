@@ -759,17 +759,20 @@ select."
 ;; ⚠️ This code is very much a collection of proofs of concept.  Very little of
 ;; it will likely be stable or is of high quality.  You may want to reduce to
 ;; just your use case before attempting to implement a new feature.
-(defun moc--display-fullscreen (text &optional invisibility-spec overlays beg end)
+(defun moc--display-fullscreen (&rest args)
   "Show TEXT with properties in a fullscreen window.
-🚧 This function is under active development.  The signature is likely
-to change to plist style, using keyword arguments to be more stable /
-user-friendly."
+See `mc-focus' for meaning of keys in ARGS."
   (when-let ((old (get-buffer "*MC Focus*")))
     (kill-buffer old))
   (setq moc--focus-old-window-config (current-window-configuration))
   (let* ((base (current-buffer))
          (buffer (get-buffer-create "*MC Focus*"))
-         (text (moc--focus-clean-properties text)))
+         (beg (plist-get args :beg))
+         (end (plist-get args :end))
+         (text (moc--focus-clean-properties (plist-get args :string)))
+         (overlays (plist-get args :overlays))
+         (invisibility-spec (plist-get args :invisibility-spec))
+         (highlights (plist-get args :highlights)))
     (delete-other-windows)
     (let ((inhibit-message t))
       (switch-to-buffer buffer))
@@ -794,6 +797,7 @@ user-friendly."
                         'line-prefix nil
                         'wrap-prefix nil))
 
+    ;; XXX Extra super broken for rectangle selections with overlays
     ;; apply translated overlays after buffer has text
     ;; ⚠️ This method is totally not going to work.  Translation, rectangle, and
     ;; trimming all have to work together.  Also max line length support is
@@ -825,6 +829,11 @@ user-friendly."
 
       (mapc (lambda (remap) (moc-face-remap remap t))
             moc-focus-default-remaps)
+
+      (setq moc--focus-highlights highlights)
+      ;; TODO distinguish fully shadowed versus no highlights
+      (when highlights
+        (moc--focus-apply-highlights highlights))
 
       ;; Now that the text is its final size, adjust the margins and vertical
       ;; spacing
@@ -1012,60 +1021,53 @@ Preserves total ordering of highlighted spans."
 (defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
   (interactive)
-  ;; TODO kill ring save needs a lot of updates for playback.  overlays and
-  ;; invisibility spec are completely unsupported.
   (moc--focus-assert-mode)
   (let ((expression
          `(moc-focus
-           ,moc--focus-cleaned-text
-           ',moc--focus-highlights)))
+           :invisibility-spec ,buffer-invisibility-spec
+           :string ,moc--focus-cleaned-text
+           :highlights ',moc--focus-highlights)))
     (kill-new (prin1-to-string expression)))
   (message "saved focus to kill ring"))
 
 (put 'moc-focus-kill-ring-save  'mode 'moc-focus-mode)
 
 ;;;###autoload
-(defun moc-focus (text &optional highlights)
-  "Focus selected region or prompt for TEXT.
-Optional HIGHLIGHTS is a list of (BEG END).
+(defun moc-focus (&rest args)
+  "Focus selected region.
+ARGS contains the following keys:
+
+- :beg beginning of region
+- :end of region
+- :invisibility-spec propagates the buffer's invisibility spec
+- :highlights a list of conses of BEG END that will be highlighted
+- :string 🚧 is text to be displayed.  This key is considered least stable.  It
+  will likely work in a backwards compatible way, but if it turns out to lose
+  necessary information, another key could take its place.
 
 🚧 This function and its signature are likely to evolve.  The base
-interactive use case of highlighting a region is stable and very useful.
-Expect playback of saved focuses to be unstable."
-  ;; 🚧 The code looks ugly.  It is.  It just needs a bit of re-architecture to
-  ;; handle rectangles and overlay merging.  Invisibility and text property
-  ;; support were recently hacked in.  As a POC, it even kind of does images.
-  ;; With face remapping, it can re-style focused regions to remove annoying
-  ;; artifacts of the area the text was extracted from.  Hell maybe we can +/-
-  ;; support for diffs by merging more text properties.  It's bad, but it's so
-  ;; good, I had to ship it bad.
+interactive use case of highlighting a region is stable and very useful."
   (interactive
-   (list (if (region-active-p)
-             (funcall (if rectangle-mark-mode
-                          (lambda (beg end)
-                            (string-join (extract-rectangle beg end)
-                                         "\n"))
-                        #'buffer-substring)
-                      (region-beginning) (region-end))
-           (read-string "enter focus text: "))))
-
-  ;; TODO translating overlays to rectangles....  Oh god.  What you need is to
-  ;; gather up each string and extract the properties and overlays and use the
-  ;; rectangle case as the base case for merging / toggling inside the focus
-  ;; buffer.
-
-  (if rectangle-mark-mode
-      (moc--display-fullscreen
-       text buffer-invisibility-spec)
-    (if (region-active-p)
-        (moc--display-fullscreen
-         text buffer-invisibility-spec
-         (overlays-in (region-beginning) (region-end))
-         (region-beginning) (region-end))
-      (moc--display-fullscreen
-       text buffer-invisibility-spec)))
-  (when highlights
-    (moc--focus-apply-highlights highlights)))
+   (if (region-active-p)
+       (list
+        :beg (region-beginning)
+        :end (region-end)
+        :invisibility-spec buffer-invisibility-spec
+        :highlights nil
+        :overlays (overlays-in (region-beginning)
+                               (region-end))
+        ;; 🚧 String may be really unstable because it's less general than
+        ;; the rectangle case.  Trimming and overlay translation depend on
+        ;; knowing the buffer location corresponding to the beginning of
+        ;; each line in the text we ultimately draw.
+        :string (if rectangle-mark-mode
+                    (string-join (extract-rectangle (region-beginning)
+                                                    (region-end))
+                                 "\n")
+                  (buffer-substring (region-beginning)
+                                    (region-end))))
+     (list :string (read-string "enter focus text: "))))
+  (apply #'moc--display-fullscreen args))
 
 (defun moc--focus-dispatch-screenshot-dir ()
   (propertize (moc--screenshot-save-path) 'face 'transient-value))
