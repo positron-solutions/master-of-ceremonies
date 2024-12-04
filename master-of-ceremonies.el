@@ -155,6 +155,8 @@ forms understood by `face-remap-add-relative'.
 (defvar mc--blink-cursor-old nil)
 (defvar mc--subtle-cursor-dead-windows nil
   "Store windows where the cursor was left off.")
+(defvar mc--subtle-cursor-old-point-buffer nil
+  "Last position of the cursor when blinking was started.")
 (defvar mc-subtle-cursor-timer nil
   "Timer started from `mc-subtle-cursor-start'.
 This timer calls `mc-subtle-cursor-timer-function' every
@@ -249,6 +251,8 @@ blink if appropriate."
    ;; stale hook fired
    ((null mc-subtle-cursor-mode) (mc-subtle-cursor-mode -1))
    (t
+    (setq mc--subtle-cursor-old-point-buffer
+          (cons (point) (current-buffer)))
     (when mc-subtle-cursor-timer
       (cancel-timer mc-subtle-cursor-timer))
     ;; TODO figure out the termination for 1 blink
@@ -284,6 +288,9 @@ blink if appropriate."
   "Determine whether we should be blinking.
 Returns whether we have any focused non-TTY frame."
   (and mc-subtle-cursor-mode
+       (not (and (eq (point) (car mc--subtle-cursor-old-point-buffer))
+                 (eq (current-buffer)
+                     (cdr mc--subtle-cursor-old-point-buffer))))
        (let ((frame-list (frame-list))
              (any-graphical-focused nil))
          (while frame-list
@@ -349,6 +356,7 @@ found active.
     ;; Selected window likely not in above dead window cleanup and could be in
     ;; blink off state.
     (internal-show-cursor nil t)
+    (setq mc--subtle-cursor-old-point-buffer nil)
     (when mc--blink-cursor-old
       (blink-cursor-mode 1)
       (setq mc--blink-cursor-old nil)))))
@@ -434,6 +442,8 @@ set, check and set."
       (let ((frame-resize-pixelwise t))
         (message "making corrections: %sw %sh"
                  width-correction height-correction)
+        (set-frame-parameter frame 'width (cons 'text-pixels (car size)))
+        (set-frame-parameter frame 'user-size t)
         (set-frame-size frame
                         (+ (car size) width-correction)
                         (+ (cdr size) height-correction)
