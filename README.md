@@ -94,14 +94,17 @@ It is of great convenience if the files are saved in the correct place. Configur
 
 Here's an example that employs a variety of techniques to calculate and persist the user's choice, per-buffer, of where to save screenshots.
 
-`moc--base-buffer` exists when the current buffer is an `MoC Focus` buffer and
+`moc-focus-base-buffer` exists when the current buffer is an `MoC Focus` buffer and
 
 ```elisp
 ;; Add this to your use-package :config section
 (defun my-screenshots-dir ()
   (interactive)
-  (let ((dir (or (buffer-local-value
-                  'moc--screenshot-dir moc--base-buffer)
+  (let ((dir (or (and moc-focus-base-buffer
+                      (buffer-local-boundp
+                       'moc--screenshot-dir moc-focus-base-buffer
+                       (buffer-local-value
+                        'moc--screenshot-dir moc-focus-base-buffer)))
                  (expand-file-name
                   "screenshots/"
                   (or (project-root (project-current))
@@ -117,8 +120,8 @@ Here's an example that employs a variety of techniques to calculate and persist 
 
     ;; Persist this choice buffer locally, using whatever buffer MoC was invoked
     ;; from if we're in an MoC buffer.
-    (when moc--base-buffer (set-buffer moc--base-buffer))
-    (setq moc--screenshot-dir dir)))
+    (when moc-focus-base-buffer (set-buffer moc-focus-base-buffer))
+    (setq-local moc--screenshot-dir dir)))
 
 ;; configure the function to be called to calculate the correct options at
 ;; runtime
