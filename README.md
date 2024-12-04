@@ -3,19 +3,18 @@
 
 # Tools for Display & Presenting
 
-<!--a href="https://melpa.org/#/master-of-ceremonies"--><!--img src="https://melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa package"--><!--/a--><!--a href="https://stable.melpa.org/#/master-of-ceremonies"--><!--img src="https://stable.melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa stable package"--><!--/a--><!--a href="https://elpa.nongnu.org/nongnu/master-of-ceremonies.html"--><!--img src="https://elpa.nongnu.org/nongnu/master-of-ceremonies.svg" alt="Non-GNU ELPA"--><!--/a-->
+<a href="https://melpa.org/#/master-of-ceremonies"><img src="https://melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa package"></a><a href="https://stable.melpa.org/#/master-of-ceremonies"><img src="https://stable.melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa stable package"></a><a href="https://elpa.nongnu.org/nongnu/master-of-ceremonies.html"><img src="https://elpa.nongnu.org/nongnu/master-of-ceremonies.svg" alt="Non-GNU ELPA"></a>
 
--   display and annotate a region of text fullscreen for screen capture and playback with `mc-focus`
--   set a fixed frame resolution for capture with `mc-fixed-frame-set`
--   self-disappearing subtle cursor with `mc-subtle-cursor-mode`
--   hide cursor entirely with `mc-hide-cursor-mode`
--   remap many faces in a buffer with `mc-face-remap`
--   suppress all messages with `mc-quiet-mode`
+Master of Ceremonies 🎤 is a collection of tools for presenting. Use it to configure Emacs for live demonstrations and presentations. It can also be used to author content for richer presentations.
+
+-   🎛️ `mc-dispatch` is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
+
+-   🔎 `mc-focus` is a tool to create, both live and pre-recorded, illustrations of code and other text in Emacs.
 
 
 ## Status 👷
 
-This package is still pre-1.0.
+This package is still pre-1.0. Read the NEWS.org and release notes
 
 The `mc-focus` command and others are super useful and is used in almost every video or presentation I make! Therefore, it is made available in this early state.
 
@@ -25,8 +24,8 @@ Subscribe to [Positron's YouTube channel](https://www.youtube.com/@Positron-gv7d
 ## Installation
 
 ```elisp
-;; Not in MELPA or ELPA yet
-;; (use-package master-of-ceremonies)
+;; Via Non-GNU ELPA or MELPA
+(use-package master-of-ceremonies)
 
 ;; package-vc
 (package-vc-install
@@ -49,23 +48,119 @@ Subscribe to [Positron's YouTube channel](https://www.youtube.com/@Positron-gv7d
 ```
 
 
-### Customization
+# Authoring 🖋️
 
-`M-x customize-group master-of-ceremonies`
+`mc-focus` is very powerful for pre-recording sequences of images to build up larger expressions for the audience, highlighting key points in the content.
 
-The package prefix is `mc` but the full feature name is `master-of-ceremonies`.
+Several workflows are supported:
+
+-   🎬 **live presentation**: focus some text and use the cursor and highlights to point out key parts of the contents
+-   ▶️ **persisted playback**: save focused text and all configured highlights, perhaps to use as a sequence of steps in a [dslide](info:dslide#Top) presentation.
+-   📸 **saving screenshots**: save screenshots for use in external applications such as Blender or another video authoring tool.
 
 
-# Contributing
+## Live Presentation 🎬
+
+1.  Select a region of text you wish to display
+2.  Call `mc-focus`. (this is a command worth binding)
+
+Now you are within the focus buffer. It uses a modal interface, like magit, to quickly author changes and reference the controls. To see the transient modal interface, call `mc-focus-dispatch` or press the `h` binding.
+
+By default the cursor is hidden. This is because usually you want to make screenshots or do playback. To activate an ephemeral cursor, press `.` for `mc-subtle-cursor-mode`. (this mode may be useful for presentation in general). The subtle cursor disappears whenever you aren't using it! Very beneficial.
+
+You can also modify the results several ways:
+
+-   Select a region and highlight it with `l`
+-   Remap the faces with `r`
+-   Clear highlights with `c`
+
+💡 Maneuvering the point with packages like `avy` does not require a cursor. Highlighting by simply using the region is also viable for live demonstration.
+
+💡 While the buffer defaults to read-only to be less touchy, you can of course turn this off with `read-only-mode` to make quick touch-ups to the text. Keep in mind, the backing data structures may become off depending on the latest implementation 👷
+
+
+## Persisted Playback ▶️
+
+When you have arrived at a starting or intermediate point you want to play back exactly within Emacs, the `w` key calls `mc-focus-kill-ring-save`. An expression will be saved to your kill ring that re-creates the currently visible state.
+
+Copy this expression wherever appropriate, such as the body of a babel block configured as a step in [dslide](info:dslide#Top).
+
+🚧 Playback is not yet 100% the same as doing a fresh capture with `mc-focus`.
+
+
+## Saving Screenshots 📸
+
+It is of great convenience if the files are saved in the correct place. Configure `mc-screenshot-dir` to be a function that calculates the correct location based on your current project directory.
+
+Here's an example that employs a variety of techniques to calculate and persist the user's choice, per-buffer, of where to save screenshots.
+
+`mc--base-buffer` exists when the current buffer is an `MC Focus` buffer and
+
+```elisp
+;; Add this to your use-package :config section
+(defun my-screenshots-dir ()
+  (interactive)
+  (let ((dir (or (buffer-local-value
+                  'mc--screenshot-dir mc--base-buffer)
+                 (expand-file-name
+                  "screenshots/"
+                  (or (project-root (project-current))
+                      (temporary-file-directory))))))
+    ;; Creating directories can signal an error.  That's a good time to ask the
+    ;; user for a fallback directory.
+    (condition-case nil
+        (unless (file-exists-p dir)
+          (make-directory dir t))
+      (error (let ((fallback (read-directory-name
+                              "screenshot directory: ")))
+               (setq dir fallback))))
+
+    ;; Persist this choice buffer locally, using whatever buffer MC was invoked
+    ;; from if we're in an MC buffer.
+    (when mc--base-buffer (set-buffer mc--base-buffer))
+    (setq mc--screenshot-dir dir)))
+
+;; configure the function to be called to calculate the correct options at
+;; runtime
+(setopt moc-screenshot-dir #'my-screenshots-dir)
+
+```
+
+Now just configure the save type, `mc-screenshot-type`, which uses the same types as supported by `x-export-frames`.
+
+
+# Presenting 🎛️
+
+It is recommended to bind the `mc-dispatch` interface to a key. This interface shows many relevant configuration states and provides options to change them. It also includes some built-in Emacs behaviors, consolidating these controls into a transient interface.
+
+-   `mc-quiet-mode` suppresses some but not all messages. User commands that generate `user-error` and some other messages may still get through. ⚠️ Leaving this on can result in confusion, but it is on by default when using `mc-focus` because such messages almost always interrupt taking screenshots.
+-   `mc-face-remap` can apply multiple face remappings according to preset profiles.
+-   `mc-subtle-cursor-mode` is similar to `blink-cursor-mode` but hides itself after motion. You can use it like a laser pointer during presentation and it gets back out of the way on its own.
+-   `mc-fixed-frame` creates hooks on a target frame that preserve its dimensions. It has preset resolutions, so if you always present or capture the screen at target dimensions, it's great.
+    
+    🚧 There is an issue with the size maintenance when a transient prefix is active. Resizing the default text scale can exhibit the issue. Dismissing the transient fixes it for now.
+
+**Built-in Tools**
+
+-   Controls for `default-text-scale-mode` and `text-scale-mode`
+-   `hide-mode-line-mode`
+
+🚧 It is planned to add for convenience, extra groups to this interface using [transient](info:transient#Top) support for menu modification. Transient supports this, so knock yourself out. PR's welcome.
+
+
+# Contributing 🍔
+
+-   Since you likely just need something to magically happen, the recommended option is to place a hamburger in the [hamburger jar](https://github.com/sponsors/positron-solutions) and file an issue.
+-   If you do have time, excellent. Happy to support your PR's and provide context about the architecture and behavior.
 
 This package is brought to you by [dslide](https://github.com/positron-solutions/dslide), which is brought to you by [prizeforge.com](https://prizeforge.com), brought to you by [positron.solutions](https://positron.solutions). If our Github sponsors page is still up, you can sign up there and we will invite you to move over to PrizeForge when it is launched.
 
-If you don't know what you are doing, most likely you want is quick solutions based on experience and to have them distributed to your normal installation method. File and issue and put a 🍔 into the 🍔 [jar](https://github.com/sponsors/positron-solutions).
 
+## Work In Progress 🚧
 
-## Prospective Features
+Open issues and give feedback on feature requests. Contributions welcome. This is a non-exhaustive list of things being considered or even planned.
 
-MC was developed alongside [dslide](https://github.com/positron-solutions/dslide) when dslide was still called Macro Slides. Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide. Features thave have strong standalone value **and** are not tedious to integrate with dslide via hooks can live in MC.
+MoC was developed alongside [dslide](https://github.com/positron-solutions/dslide) when dslide was still called Macro Slides. Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide. Features thave have strong standalone value **and** are not tedious to integrate with dslide via hooks can live in MC.
 
 
 ### Settings Profiles

@@ -665,11 +665,25 @@ This just provides minor conveniences like pre-configured save path with
 
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun mc--focus-refresh (window)
+  "Window margins persist across buffer changes.
+We need to re-set any margins when the focus buffer becomes visible
+again."
   (if (eq (window-buffer window) (get-buffer "*MC Focus*"))
       (set-window-margins
        window mc--focus-margin-left mc--focus-margin-right)))
 
 (defun mc--focus-clean-properties (text)
+  "Reduce the properties for more succinct playback expressions.
+When using `mc-focus-kill-ring-save', we have to save every single text
+property.  Appropriate behavior for this function is to return TEXT only
+with properties that will affect display.  It would be appropriate to
+omit any faces that don't have a visible effect on the result.  It may
+be better to configure away certain faces that are being effectively
+removed by `mc-face-remap'.
+
+Because we don't know the context of the text that is being focused, we
+can't use temporary buffers and font locking to restore properties; the
+text we have is likely incomplete out of context."
   (let ((dirty-props (object-intervals text))
         (clean-string (substring-no-properties text)))
     (mapc
@@ -685,6 +699,9 @@ This just provides minor conveniences like pre-configured save path with
     clean-string))
 
 (defun mc--focus-translate-overlays (text overlays beg _end buffer)
+  "This function may not have the right architecture.
+Feel free to demolish the implementation as needed to support rectangle
+select."
   (let ((max-pos (1+ (length text))))
     (mapcar
      (lambda (o)
