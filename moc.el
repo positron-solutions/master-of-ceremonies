@@ -179,6 +179,11 @@ Unlike the so-called highlight overlays, these overlays really do
 obscure text and their implementation is a bit simpler.")
 (defvar-local moc--focus-obscures nil
   "List of obscured regions.")
+;; (defvar-local moc--focus-source-overlays nil
+;;   "Overlay specs read from the source buffer region.
+;; List elements the same structure as returned by `overlay-properties'.")
+(defvar-local moc--focus-invisibility-spec nil
+  "Visibility spec read from the source buffer.")
 (defvar-local moc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
 ;; TODO specified space is better
@@ -803,6 +808,7 @@ See `mc-focus' for meaning of keys in ARGS."
     (moc-focus-mode)
     (setq-local mode-line-format nil)
     (setq buffer-invisibility-spec invisibility-spec)
+    (setq-local moc--focus-invisibility-spec invisibility-spec)
     (setq moc--focus-old-quiet
           moc-quiet-mode)
     (setq moc--focus-old-subtle-cursor
@@ -887,6 +893,7 @@ See `mc-focus' for meaning of keys in ARGS."
   "." #'moc--focus-cursor-toggle
   "c" #'moc-face-remap-clear
   "e" #'moc-quiet-mode
+  "i" #'moc-focus-toggle-invisibility
   "h" #'moc-focus-dispatch
   "l" #'moc-focus-highlight
   "o" #'moc-focus-obscure
@@ -1139,6 +1146,28 @@ OBSCURES is a list of conses of BEG END to be obscured."
         (overlay-put ov 'priority 1000) ; arbitrary
         (push ov moc--focus-obscuring-overlays)))))
 
+(defun moc-focus-toggle-invisibility ()
+  "Toggle the invisibility spec from the source region.
+When text has been made partially invisible by a
+`buffer-invisibility-spec' combined with matching text properties, we
+can reveal it by turning the buffer spec off. Overlays that apply such
+specs will also be made inactive when the buffer invisibility spec is
+turned off.
+
+This can be used to demonstrate behavior in packages like org modern or
+to reveal markup that you normally keep hidden in order to display it in
+its literal form.
+
+This command will toggle the value to nil, so even with the default
+spec, which is simply t, there may be invisible text that is revealed.
+
+See info node `(elisp)Invisible Text'."
+  (interactive)
+  (moc--focus-assert-mode)
+  (if (eq buffer-invisibility-spec moc--focus-invisibility-spec)
+      (setq buffer-invisibility-spec nil)
+    (setq buffer-invisibility-spec moc--focus-invisibility-spec)))
+
 (defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
   (interactive)
@@ -1146,7 +1175,7 @@ OBSCURES is a list of conses of BEG END to be obscured."
   (let ((expression
          `(moc-focus
            ;; TODO overlays, beg end.
-           :invisibility-spec ',buffer-invisibility-spec
+           :invisibility-spec ',moc--focus-invisibility-spec
            :string ,moc--focus-cleaned-text
            :highlights ',moc--focus-highlights
            :obscures ',moc--focus-obscures)))
@@ -1230,6 +1259,24 @@ instead."
 
 (put 'moc--focus-cursor-toggle 'mode 'moc-focus-mode)
 
+;; (defun moc--focus-dispatch-overlays ()
+;;   "Return description of overlay state.
+;; Used in suffix."
+;;   (if moc--focus-overlays
+;;       (format "toggle overlays %-4s"
+;;               (propertize (format "%d" (length moc--focus-source-overlays))
+;;                'face 'transient-value))
+;;     ("toggle overlays")))
+
+(defun moc--focus-dispatch-invisibility ()
+  "Return description of invisibility state.
+Used in suffix."
+  (if buffer-invisibility-spec
+      (format "toggle invisibility %s"
+              (propertize "on" 'face 'transient-value))
+    (format "toggle invisibility %s"
+            (propertize "off" 'face 'transient-value))))
+
 ;;;###autoload (autoload 'moc-focus-dispatch "master-of-ceremonies" nil t)
 (transient-define-prefix moc-focus-dispatch ()
   "Transient menu for MC Focus mode."
@@ -1243,6 +1290,12 @@ instead."
     ("U" moc-focus-highlight-clear
      :inapt-if-not moc--focus-can-clear-p
      :description moc--focus-dispatch-clears)]
+   ["Visibility"
+    ;; ("v" moc-focus-toggle-overlays
+    ;;  :description moc--focus-dispatch-overlays
+    ;;  :inapt-if-nil moc--focus-source-overlays)
+    ("i" moc-focus-toggle-invisibility
+     :description moc--focus-dispatch-invisibility)]
    ["Face Remapping"
     ("r" "remap" moc-face-remap)
     ("c" moc-face-remap-clear
