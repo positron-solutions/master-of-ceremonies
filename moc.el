@@ -141,9 +141,9 @@ is valid value for the `fullscreen' frame parameter.
 (defcustom moc-face-remap-presets
   '((bold . ((default :weight bold)))
     (org-block-no-background . ((org-block :background nil :extend nil))))
-  "Face remapping presets.
+   "Face remapping presets.
 Value is an alist.  Each entry should be a cons of SYMBOL PRESET.
-SYMBOL will be used to choose the PRESET. PRESET is an ALIST where each
+SYMBOL will be used to choose the PRESET.  PRESET is an ALIST where each
 element of PRESET is a cons of FACE SPECS where SPECS is one of the
 forms understood by `face-remap-add-relative'.
 
@@ -192,6 +192,8 @@ base buffer to be relied upon for implementing things.")
 ;; * Mass Face Remapping
 
 (defun moc--read-remap (&optional preset)
+  "Prompt for a preset.
+PRESET is passed from elisp programs to load pre-deteremined presets."
   (when-let ((key (or preset
                       (completing-read
                        "Choose a remap preset: "
@@ -199,6 +201,7 @@ base buffer to be relied upon for implementing things.")
     (cdr (assoc-string key moc-face-remap-presets))))
 
 (defun moc-face-remap-clear ()
+  "Unmap any previously remapped faces."
   (interactive)
   (while-let ((cookie (pop moc--face-remap-cookies)))
     (face-remap-remove-relative cookie)))
@@ -398,6 +401,8 @@ are disabled, there may be no obvious user feedback ☠️"
       (remove-hook 'window-size-change-functions #'moc--fixed-frame-notify))))
 
 (defun moc--fixed-frame-release (frame)
+  "Release FRAME from size management.
+Allow state cleanup if no more frames are under management."
   (set-frame-parameter frame 'moc--fixed-frame-goal nil)
   (moc--fixed-frame-check-cleanup))
 
@@ -538,6 +543,7 @@ these behaviors may become more consistent."
 ;; trial-and-error phase of building up an in-transient UI
 
 (defun moc--dispatch-frame-size ()
+  "Return frame size for use in info class."
   (format
    "current: %s"
    (propertize
@@ -547,6 +553,8 @@ these behaviors may become more consistent."
     'face 'transient-value)))
 
 (defun moc--dispatch-fixed-frames ()
+  "Return description for clearing fixed frames.
+Used in suffix command."
   (let ((frames (frame-list))
         (fixed 0))
     (while-let ((frame (pop frames)))
@@ -559,6 +567,7 @@ these behaviors may become more consistent."
        ""))))
 
 (defun moc--dispatch-cursor-mode ()
+  "Return cursor state for use in info class."
   (if-let ((cursor (if (consp cursor-type)
                        (car cursor-type)
                      (if (eq cursor-type t)
@@ -572,6 +581,8 @@ these behaviors may become more consistent."
     (propertize "hidden     " 'face 'shadow)))
 
 (defun moc--dispatch-faces-remapped ()
+  "Return remap clear description including current remap state.
+Use in suffix command."
   (let ((remaps (length moc--face-remap-cookies)))
     (format
      "clear %s"
@@ -580,24 +591,21 @@ these behaviors may become more consistent."
        ""))))
 
 (defun moc--dispatch-default-text-scale ()
+  "Return current default text scale for info class."
   (if default-text-scale-mode
       (propertize (format "scale: %s" (face-attribute 'default :height))
                   'face 'transient-value)
     (propertize "off" 'face 'shadow)))
 
 (defun moc--dispatch-text-scale ()
+  "Return current text scale for info class."
   (if text-scale-mode
       (propertize (format "scale: %s" text-scale-mode-amount)
                   'face 'transient-value)
     (propertize "off" 'face 'shadow)))
 
-(defun moc--dispatch-default-text-scale-mode-p ()
-  default-text-scale-mode)
-
-(defun moc--dispatch-text-scale-mode-p ()
-  text-scale-mode)
-
 (defun moc--dispatch-quiet-mode ()
+  "Return description and quiet mode state for suffix."
   (format
    "quiet %s"
    (if moc-quiet-mode
@@ -649,6 +657,7 @@ with MC commands and to make many adjustments at once."
 ;; welcome in MC as optional dependencies.
 
 (defun moc--screenshot-save-path ()
+  "Return the users screenshot save path, which may be computed."
   (if (stringp moc-screenshot-dir)
       moc-screenshot-dir
     (if (functionp moc-screenshot-dir)
@@ -681,9 +690,9 @@ This just provides minor conveniences like pre-configured save path with
 
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
-  "Window margins persist across buffer changes.
-We need to re-set any margins when the focus buffer becomes visible
-again."
+  "Refresh margins in WINDOW if buffer is visible again.
+Window margins persist across buffer changes and could require updating when an
+MoC buffer becomes visible again."
   (if (eq (window-buffer window) (get-buffer "*MC Focus*"))
       (set-window-margins
        window moc--focus-margin-left moc--focus-margin-right)))
@@ -715,9 +724,10 @@ text we have is likely incomplete out of context."
     clean-string))
 
 (defun moc--focus-translate-overlays (text overlays beg _end buffer)
-  "This function may not have the right architecture.
-Feel free to demolish the implementation as needed to support rectangle
-select."
+  "Translate OVERLAYS so that they apply correctly to TEXT.
+⚠️ Just kidding.  BEG works for a normal selection, but this is probably
+broken for rectangle selections.  Feel free to demolish the
+implementation as needed to support rectangle select."
   (let ((max-pos (1+ (length text))))
     (mapcar
      (lambda (o)
@@ -735,6 +745,7 @@ select."
      (cdr overlays))))
 
 (defun moc--focus-cleanup ()
+  "Clean up state for focus buffer upon kill."
   (remove-hook 'window-state-change-functions #'moc--focus-refresh)
   ;; hidden cursor is buffer local and naturally goes away, but subtle cursor is
   ;; global and needs to be turned off if it wasn't on when focusing began.
@@ -875,6 +886,7 @@ See `mc-focus' for meaning of keys in ARGS."
   :interactive nil)
 
 (defsubst moc--focus-assert-mode ()
+  "Raise user error if commands are called in wrong mode."
   (if-let ((buffer (get-buffer "*MC Focus*")))
       (set-buffer buffer)
     (user-error "No MC buffer found")))
@@ -929,7 +941,7 @@ The shadow face will be added to the region between BEG and END."
 (put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
 
 (defun moc--focus-apply-highlights (highlights)
-  "Use to replay HIGHLIGHTS from Elisp programs.
+  "Replay HIGHLIGHTS from Elisp programs.
 HIGHLIGHTS is a list of conses of BEG END to be highlighted.  Regions
 not contained by some BEG END will have the shadow face applied.
 HIGHLIGHTS must be partially ordered and with no overlaps or else
@@ -1071,8 +1083,11 @@ interactive use case of highlighting a region is stable and very useful."
 
 (defun moc--focus-dispatch-screenshot-dir ()
   (propertize (moc--screenshot-save-path) 'face 'transient-value))
+  "Return current screenshot dir for use in info class."
 
 (defun moc--focus-dispatch-highlights ()
+  "Return description for clearing highlights.
+Used in suffix command."
   (if moc--focus-highlights
       (concat
        "clear "
@@ -1082,6 +1097,10 @@ interactive use case of highlighting a region is stable and very useful."
     "clear all"))
 
 (defun moc--focus-cursor-toggle ()
+  "Toggle hidden and subtle cursor.
+When in an MC buffer, likely the user does not want to ever have a fully
+visible cursor.  This command directly toggles hidden and subtle
+instead."
   (interactive)
   (if moc-subtle-cursor-mode
       (moc-subtle-cursor-mode -1)
