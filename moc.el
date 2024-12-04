@@ -1131,8 +1131,12 @@ OBSCURES is a list of conses of BEG END to be obscured."
       ;; to obscure than to "highlight".
       (let ((ov (make-overlay (car ob) (cdr ob))))
         ;; TODO does not obscure emoji glphs, which also have non-fixed sizes
-        (overlay-put ov 'face `(:foreground ,background))
-        (overlay-put ov 'priority 1000)     ; arbitrary
+        ;; TODO fringes
+        (overlay-put ov 'face
+                     (list :foreground background
+                           :background background
+                           :extend t))
+        (overlay-put ov 'priority 1000) ; arbitrary
         (push ov moc--focus-obscuring-overlays)))))
 
 (defun moc-focus-kill-ring-save ()
