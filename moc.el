@@ -166,9 +166,19 @@ This timer calls `moc-subtle-cursor-timer-function' every
   "Number of blinks done since we started blinking on NS, X, and MS-Windows.")
 
 (defvar-local moc--focus-highlight-overlays nil
-  "Overlays used to focus text.")
+  "Overlays used to highlight focused text.
+Each region is a cons of BEG END.  In actuality these overlays are a
+negative image of highlighted spans.  They add the shadow face to
+non-highlighted text.")
 (defvar-local moc--focus-highlights nil
-  "List of highlight regions for playback.")
+  "List of highlighted regions.
+Each region is a cons of BEG END.")
+(defvar-local moc--focus-obscuring-overlays nil
+  "Overlays used to obscure.
+Unlike the so-called highlight overlays, these overlays really do
+obscure text and their implementation is a bit simpler.")
+(defvar-local moc--focus-obscures nil
+  "List of obscured regions.")
 (defvar-local moc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
 ;; TODO specified space is better
@@ -783,7 +793,8 @@ See `mc-focus' for meaning of keys in ARGS."
          (text (moc--focus-clean-properties (plist-get args :string)))
          (overlays (plist-get args :overlays))
          (invisibility-spec (plist-get args :invisibility-spec))
-         (highlights (plist-get args :highlights)))
+         (highlights (plist-get args :highlights))
+         (obscures (plist-get args :obscures)))
     (delete-other-windows)
     (let ((inhibit-message t))
       (switch-to-buffer buffer))
@@ -846,6 +857,10 @@ See `mc-focus' for meaning of keys in ARGS."
       (when highlights
         (moc--focus-apply-highlights highlights))
 
+      (setq moc--focus-obscures obscures)
+      (when obscures
+        (moc--focus-apply-obscures obscures))
+
       ;; Now that the text is its final size, adjust the margins and vertical
       ;; spacing
       (let* ((h (window-pixel-height))
@@ -874,6 +889,7 @@ See `mc-focus' for meaning of keys in ARGS."
   "e" #'moc-quiet-mode
   "h" #'moc-focus-dispatch
   "l" #'moc-focus-highlight
+  "o" #'moc-focus-obscure
   "q" #'moc-focus-quit
   "r" #'moc-face-remap
   "s" #'moc-screenshot
@@ -892,14 +908,18 @@ See `mc-focus' for meaning of keys in ARGS."
     (user-error "No MC buffer found")))
 
 (defun moc-focus-highlight-clear ()
-  "Delete overlays."
+  "Delete all highlights and obscures."
   (interactive)
   (moc--focus-assert-mode)
-  (unless moc--focus-highlights
-    (user-error "No highlights to un-highlight"))
+  (unless (or moc--focus-highlights
+              moc--focus-obscures)
+    (user-error "No highlights or obscures to remove"))
   (setq moc--focus-highlights nil)
   (mapc #'delete-overlay moc--focus-highlight-overlays)
-  (setq moc--focus-highlight-overlays nil))
+  (setq moc--focus-highlight-overlays nil)
+  (setq moc--focus-obscures nil)
+  (mapc #'delete-overlay moc--focus-obscuring-overlays)
+  (setq moc--focus-obscuring-overlays nil))
 
 (put 'moc-focus-highlight-clear 'mode 'moc-focus-mode)
 
@@ -918,12 +938,28 @@ The shadow face will be applied to remaining unhighlighted regions."
   (interactive "r")
   (moc--focus-assert-mode)
   (moc--focus-highlight beg end)
+  (moc--focus-un-obscure beg end)
   ;; unnecessary to deactivate the mark when called any other way
   (when (called-interactively-p 't)
     (deactivate-mark))
-  (moc--focus-apply-highlights moc--focus-highlights))
+  (moc--focus-apply-highlights moc--focus-highlights)
+  (moc--focus-apply-obscures moc--focus-obscures))
 
 (put 'moc-focus-highlight 'mode 'moc-focus-mode)
+
+(defun moc-focus-obscure (beg end)
+  "Obscure region between BEG and END.
+This overrides any highlights or shadows.  Use un-highlight or highlight
+to make obscurred regions visible again."
+  (interactive "r")
+  (moc--focus-assert-mode)
+  (moc--focus-obscure beg end)
+  ;; unnecessary to deactivate the mark when called any other way
+  (when (called-interactively-p 't)
+    (deactivate-mark))
+  (moc--focus-apply-obscures moc--focus-obscures))
+
+(put 'moc-focus-obscure 'mode 'moc-focus-mode)
 
 (defun moc-focus-un-highlight (beg end)
   "Remove highlight in region between BEG and END.
@@ -933,10 +969,12 @@ The shadow face will be added to the region between BEG and END."
   (unless moc--focus-highlights
     (user-error "No highlights to un-highlight"))
   (moc--focus-un-highlight beg end)
+  (moc--focus-un-obscure beg end)
   ;; unnecessary to deactivate the mark when called any other way
   (when (called-interactively-p 't)
     (deactivate-mark))
-  (moc--focus-apply-highlights moc--focus-highlights))
+  (moc--focus-apply-highlights moc--focus-highlights)
+  (moc--focus-apply-obscures moc--focus-obscures))
 
 (put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
 
@@ -1005,6 +1043,33 @@ Preserves total ordering of highlighted spans."
          (t (push h keep)))))
     (setq moc--focus-highlights (nreverse keep))))
 
+(defun moc--focus-un-obscure (beg end)
+  "Remove region between BEG and END from obscures.
+Preserves total ordering of obscurred spans."
+  (let ((obscures moc--focus-obscures)
+        keep)
+    (while-let ((o (pop obscures)))
+      ;; If BEG and END include either or both ends of a obscure, we have to
+      ;; modify spans.
+      (let ((o-beg-interior (and (>= (car o) beg)
+                                 (<= (car o) end)))
+            (o-end-interior (and (>= (cdr o) beg)
+                                 (<= (cdr o) end)))
+            (o-beg-before (< (car o) beg))
+            (o-end-after (> (cdr o) end)))
+        (cond
+         ;; fully contained obscures are omitted
+         ((and o-beg-interior o-end-interior) nil)
+         ;; intersected obscures are trimmed
+         (o-beg-interior (push (cons end (cdr o)) keep))
+         (o-end-interior (push (cons (car o) beg) keep))
+         ;; split obscures that contain un-obscure
+         ((and o-beg-before o-end-after)
+          (push (cons (car o) beg) keep)
+          (push (cons end (cdr o)) keep))
+         (t (push o keep)))))
+    (setq moc--focus-obscures (nreverse keep))))
+
 (defun moc--focus-highlight (beg end)
   "Add region between BEG and END to highlights.
 Preserves total ordering of highlighted spans."
@@ -1030,6 +1095,46 @@ Preserves total ordering of highlighted spans."
       (push (pop highlights) keep))
     (setq moc--focus-highlights (nreverse keep))))
 
+(defun moc--focus-obscure (beg end)
+  "Add region between BEG and END to obscures.
+Preserves total ordering of obscured spans."
+  (let ((obscures moc--focus-obscures)
+        keep merge)
+    ;; push all regions ending before beg
+    (while (and (car obscures)
+                (< (cdar obscures) beg))
+      (push (pop obscures) keep))
+    ;; merge all regions that overlap or are adjacent
+    (setq merge (cons beg end))
+    (while (and obscures
+                (or (and (>= (caar obscures) beg)
+                         (<= (caar obscures) end))
+                    (and (>= (cdar obscures) beg)
+                         (<= (cdar obscures) end))))
+      (setq merge (cons (min (caar obscures) beg)
+                        (max (cdar obscures) end)))
+      (pop obscures))
+    (push merge keep)
+    ;; push remaining regions
+    (while obscures
+      (push (pop obscures) keep))
+    (setq moc--focus-obscures (nreverse keep))))
+
+(defun moc--focus-apply-obscures (obscures)
+  "Replay OBSCURES from Elisp programs.
+OBSCURES is a list of conses of BEG END to be obscured."
+  (let ((background (face-attribute 'default :background)))
+    (mapc #'delete-overlay moc--focus-obscuring-overlays)
+    (while-let ((ob (pop obscures)))
+      ;; Yep.  This is it.  This is all that is needed to obscure the obscurred
+      ;; stuff.  Making this comment longer while reflecting on how it is easier
+      ;; to obscure than to "highlight".
+      (let ((ov (make-overlay (car ob) (cdr ob))))
+        ;; TODO does not obscure emoji glphs, which also have non-fixed sizes
+        (overlay-put ov 'face `(:foreground ,background))
+        (overlay-put ov 'priority 1000)     ; arbitrary
+        (push ov moc--focus-obscuring-overlays)))))
+
 (defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
   (interactive)
@@ -1039,9 +1144,10 @@ Preserves total ordering of highlighted spans."
            ;; TODO overlays, beg end.
            :invisibility-spec ',buffer-invisibility-spec
            :string ,moc--focus-cleaned-text
-           :highlights ',moc--focus-highlights)))
+           :highlights ',moc--focus-highlights
+           :obscures ',moc--focus-obscures)))
     (kill-new (prin1-to-string expression)))
-  (message "saved focus to kill ring"))
+  (message "saved focus to kill ring."))
 
 (put 'moc-focus-kill-ring-save  'mode 'moc-focus-mode)
 
@@ -1054,6 +1160,7 @@ ARGS contains the following keys:
 - :end of region
 - :invisibility-spec propagates the buffer's invisibility spec
 - :highlights a list of conses of BEG END that will be highlighted
+- :obscures a list of conses of BEG END that will be obscured
 - :string 🚧 is text to be displayed.  This key is considered least stable.  It
   will likely work in a backwards compatible way, but if it turns out to lose
   necessary information, another key could take its place.
@@ -1067,6 +1174,7 @@ interactive use case of highlighting a region is stable and very useful."
         :end (region-end)
         :invisibility-spec buffer-invisibility-spec
         :highlights nil
+        :obscures nil
         :overlays (overlays-in (region-beginning)
                                (region-end))
         ;; 🚧 String may be really unstable because it's less general than
@@ -1086,16 +1194,23 @@ interactive use case of highlighting a region is stable and very useful."
   "Return current screenshot dir for use in info class."
   (propertize (moc--screenshot-save-dir) 'face 'transient-value))
 
-(defun moc--focus-dispatch-highlights ()
+(defun moc--focus-dispatch-clears ()
   "Return description for clearing highlights.
 Used in suffix command."
-  (if moc--focus-highlights
+  (if (or moc--focus-highlights
+          moc--focus-obscures)
       (concat
        "clear "
        (propertize
-        (format "%s highlights" (length moc--focus-highlights))
+        (format "%s highlights" (+ (length moc--focus-highlights)
+                                   (length moc--focus-obscures)))
         'face 'transient-value))
     "clear all"))
+
+(defun moc--focus-can-clear-p ()
+  "Return non-nil if anything can be cleared."
+  (or moc--focus-highlights
+      moc--focus-obscures))
 
 (defun moc--focus-cursor-toggle ()
   "Toggle hidden and subtle cursor.
@@ -1118,11 +1233,12 @@ instead."
   ;; Keep this in sync with `moc-focus-mode-map`!
   [["Highlights"
     ("l" "highlight" moc-focus-highlight)
+    ("o" "obscure" moc-focus-obscure)
     ("u" "un-highlight" moc-focus-highlight-clear
-     :inapt-if-nil moc--focus-highlights)
+     :inapt-if-not moc--focus-can-clear-p)
     ("U" moc-focus-highlight-clear
-     :inapt-if-nil moc--focus-highlights
-     :description moc--focus-dispatch-highlights)]
+     :inapt-if-not moc--focus-can-clear-p
+     :description moc--focus-dispatch-clears)]
    ["Face Remapping"
     ("r" "remap" moc-face-remap)
     ("c" moc-face-remap-clear

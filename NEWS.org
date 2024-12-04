@@ -35,6 +35,7 @@ The ~moc-focus~ command remains the focal point.  Many of the tools like setting
 - ~moc-focus-highlight~ and ~moc-focus-un-highlight~  now support multiple highlighted spans
 - ~moc-focus~ now has ~moc-focus-dispatch~ to provide a magit like help / info interface to quickly learn the MoC controls
 - ~moc-focus-default-remaps~ will apply ~moc-face-remap~ presets so you don't have to manually do common remaps.  The remaps are still interactive and can be manually tweaked for edge cases.
+- ~moc-focus-obscure~ now makes it possible to hide text temporarily.  This can improve certain editing workflows.
 ** Changed 📈
 - ~moc-face-remap~ is the old org mode remapping.  This version is flexible for all situations and supports multiple preset profiles
 - The variables controlling ~moc-focus~ have been renamed / revamped.  The new variables are:
