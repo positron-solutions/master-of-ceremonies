@@ -656,7 +656,7 @@ with MC commands and to make many adjustments at once."
 ;; the way.  There are other packages for building gifs etc that would be
 ;; welcome in MC as optional dependencies.
 
-(defun moc--screenshot-save-path ()
+(defun moc--screenshot-save-dir ()
   "Return the users screenshot save path, which may be computed."
   (if (stringp moc-screenshot-dir)
       moc-screenshot-dir
@@ -673,7 +673,7 @@ This just provides minor conveniences like pre-configured save path with
   (interactive)
   (let* ((timestamp (format-time-string "%F-%H:%M:%S" (current-time)))
          (filename (format "screenshot-%s.svg" timestamp))
-         (dir (moc--screenshot-save-path))
+         (dir (moc--screenshot-save-dir))
          (path (concat dir filename))
          (data (x-export-frames nil moc-screenshot-type)))
     (unless (file-exists-p dir)
@@ -1082,8 +1082,8 @@ interactive use case of highlighting a region is stable and very useful."
   (apply #'moc--display-fullscreen args))
 
 (defun moc--focus-dispatch-screenshot-dir ()
-  (propertize (moc--screenshot-save-path) 'face 'transient-value))
   "Return current screenshot dir for use in info class."
+  (propertize (moc--screenshot-save-dir) 'face 'transient-value))
 
 (defun moc--focus-dispatch-highlights ()
   "Return description for clearing highlights.
