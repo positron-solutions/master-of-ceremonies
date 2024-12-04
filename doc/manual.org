@@ -7,9 +7,9 @@ title: Master of Ceremonies
 #+options: broken-links:nil \n:nil ::t |:t ^:nil -:t f:t *:t <:t e:t ':t
 #+options: d:nil todo:nil pri:nil tags:not-in-toc stat:nil
 #+language: en
-#+export_file_name: mc.texi
+#+export_file_name: moc.texi
 #+texinfo_dir_category: Emacs
-#+texinfo_dir_title: Master of Ceremonies: (mc).
+#+texinfo_dir_title: Master of Ceremonies: (moc).
 #+texinfo_dir_desc: Tools for Presentation
 #+macro: package-version (eval (if (require 'erk nil t) (erk-package-version) "0.4.0"))
 #+macro: package-author (eval (if (require 'erk nil t) (erk-package-author) "Positron"))
@@ -23,14 +23,14 @@ title: Master of Ceremonies
 :END:
 Master of Ceremonies 🎤 is a collection of tools for presenting.  Use it to configure Emacs for live demonstrations and presentations.  It can also be used to author content for richer presentations.
 
-- 🎛️ ~mc-dispatch~  is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
+- 🎛️ ~moc-dispatch~  is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
 
-- 🔎 ~mc-focus~ is a tool to create, both live and pre-recorded, illustrations of code and other text in Emacs.
+- 🔎 ~moc-focus~ is a tool to create, both live and pre-recorded, illustrations of code and other text in Emacs.
 * Authoring 🖋️
 :PROPERTIES:
 :DESCRIPTION: Make Content
 :END:
-~mc-focus~ is very powerful for pre-recording sequences of images to build up larger expressions for the audience, highlighting key points in the content.
+~moc-focus~ is very powerful for pre-recording sequences of images to build up larger expressions for the audience, highlighting key points in the content.
 
 Several workflows are supported:
 - 🎬 *live presentation*: focus some text and use the cursor and highlights to point out key parts of the contents
@@ -41,11 +41,11 @@ Several workflows are supported:
 :DESCRIPTION: Creation is Demonstration
 :END:
 1. Select a region of text you wish to display
-2. Call ~mc-focus~.  (this is a command worth binding)
+2. Call ~moc-focus~.  (this is a command worth binding)
 
-Now you are within the focus buffer.  It uses a modal interface, like magit, to quickly author changes and reference the controls.  To see the transient modal interface, call ~mc-focus-dispatch~ or press the =h= binding.
+Now you are within the focus buffer.  It uses a modal interface, like magit, to quickly author changes and reference the controls.  To see the transient modal interface, call ~moc-focus-dispatch~ or press the =h= binding.
 
-By default the cursor is hidden.  This is because usually you want to make screenshots or do playback.  To activate an ephemeral cursor, press =.= for ~mc-subtle-cursor-mode~.  (this mode may be useful for presentation in general).  The subtle cursor disappears whenever you aren't using it!  Very beneficial.
+By default the cursor is hidden.  This is because usually you want to make screenshots or do playback.  To activate an ephemeral cursor, press =.= for ~moc-subtle-cursor-mode~.  (this mode may be useful for presentation in general).  The subtle cursor disappears whenever you aren't using it!  Very beneficial.
 
 You can also modify the results several ways:
 - Select a region and highlight it with =l=
@@ -59,29 +59,29 @@ You can also modify the results several ways:
 :PROPERTIES:
 :DESCRIPTION: Saving as Elisp
 :END:
-When you have arrived at a starting or intermediate point you want to play back exactly within Emacs, the =w= key calls ~mc-focus-kill-ring-save~.  An expression will be saved to your kill ring that re-creates the currently visible state.
+When you have arrived at a starting or intermediate point you want to play back exactly within Emacs, the =w= key calls ~moc-focus-kill-ring-save~.  An expression will be saved to your kill ring that re-creates the currently visible state.
 
 Copy this expression wherever appropriate, such as the body of a babel block configured as a step in [[info:dslide#Top][dslide]].
 
-🚧 Playback is not yet 100% the same as doing a fresh capture with ~mc-focus~.
+🚧 Playback is not yet 100% the same as doing a fresh capture with ~moc-focus~.
 ** Saving Screenshots 📸
 :PROPERTIES:
 :DESCRIPTION: Making Images
 :END:
-It is of great convenience if the files are saved in the correct place.  Configure ~mc-screenshot-dir~ to be a function that calculates the correct location based on your current project directory.
+It is of great convenience if the files are saved in the correct place.  Configure ~moc-screenshot-dir~ to be a function that calculates the correct location based on your current project directory.
 
 Here's an example that employs a variety of techniques to calculate and persist the user's choice, per-buffer, of where to save screenshots.
 
-~mc-focus-base-buffer~ exists when the current buffer is an =MC Focus= buffer and
+~moc-focus-base-buffer~ exists when the current buffer is an =MoC Focus= buffer and
 #+begin_src elisp
   ;; Add this to your use-package :config section
   (defun my-screenshots-dir ()
     (interactive)
-    (let ((dir (or (and mc-focus-base-buffer
+    (let ((dir (or (and moc-focus-base-buffer
                         (buffer-local-boundp
-                         'mc--screenshot-dir mc-focus-base-buffer
+                         'moc--screenshot-dir moc-focus-base-buffer
                          (buffer-local-value
-                          'mc--screenshot-dir mc-focus-base-buffer)))
+                          'moc--screenshot-dir moc-focus-base-buffer)))
                    (expand-file-name
                     "screenshots/"
                     (or (project-root (project-current))
@@ -95,10 +95,10 @@ Here's an example that employs a variety of techniques to calculate and persist 
                                 "screenshot directory: ")))
                  (setq dir fallback))))
 
-      ;; Persist this choice buffer locally, using whatever buffer MC was invoked
-      ;; from if we're in an MC buffer.
-      (when mc-focus-base-buffer (set-buffer mc-focus-base-buffer))
-      (setq-local mc--screenshot-dir dir)))
+      ;; Persist this choice buffer locally, using whatever buffer MoC was invoked
+      ;; from if we're in an MoC buffer.
+      (when moc-focus-base-buffer (set-buffer moc-focus-base-buffer))
+      (setq-local moc--screenshot-dir dir)))
 
   ;; configure the function to be called to calculate the correct options at
   ;; runtime
@@ -106,17 +106,17 @@ Here's an example that employs a variety of techniques to calculate and persist 
 
 #+end_src
 
-Now just configure the save type, ~mc-screenshot-type~, which uses the same types as supported by ~x-export-frames~.
+Now just configure the save type, ~moc-screenshot-type~, which uses the same types as supported by ~x-export-frames~.
 * Presenting 🎛️
 :PROPERTIES:
 :DESCRIPTION: Setting Up To Show Off
 :END:
-It is recommended to bind the ~mc-dispatch~ interface to a key.  This interface shows many relevant configuration states and provides options to change them.  It also includes some built-in Emacs behaviors, consolidating these controls into a transient interface.
+It is recommended to bind the ~moc-dispatch~ interface to a key.  This interface shows many relevant configuration states and provides options to change them.  It also includes some built-in Emacs behaviors, consolidating these controls into a transient interface.
 
-- ~mc-quiet-mode~ suppresses some but not all messages.  User commands that generate ~user-error~ and some other messages may still get through.  ⚠️ Leaving this on can result in confusion, but it is on by default when using ~mc-focus~ because such messages almost always interrupt taking screenshots.
-- ~mc-face-remap~ can apply multiple face remappings according to preset profiles.
-- ~mc-subtle-cursor-mode~ is similar to ~blink-cursor-mode~ but hides itself after motion.  You can use it like a laser pointer during presentation and it gets back out of the way on its own.
-- ~mc-fixed-frame~ creates hooks on a target frame that preserve its dimensions.  It has preset resolutions, so if you always present or capture the screen at target dimensions, it's great.
+- ~moc-quiet-mode~ suppresses some but not all messages.  User commands that generate ~user-error~ and some other messages may still get through.  ⚠️ Leaving this on can result in confusion, but it is on by default when using ~moc-focus~ because such messages almost always interrupt taking screenshots.
+- ~moc-face-remap~ can apply multiple face remappings according to preset profiles.
+- ~moc-subtle-cursor-mode~ is similar to ~blink-cursor-mode~ but hides itself after motion.  You can use it like a laser pointer during presentation and it gets back out of the way on its own.
+- ~moc-fixed-frame~ creates hooks on a target frame that preserve its dimensions.  It has preset resolutions, so if you always present or capture the screen at target dimensions, it's great.
 
   🚧 There is an issue with the size maintenance when a transient prefix is active.  Resizing the default text scale can exhibit the issue.  Dismissing the transient fixes it for now.
 
@@ -140,7 +140,7 @@ This package is brought to you by [[https://github.com/positron-solutions/dslide
 :END:
 Open issues and give feedback on feature requests.  Contributions welcome.  This is a non-exhaustive list of things being considered or even planned.
 
-MoC was developed alongside [[https://github.com/positron-solutions/dslide][dslide]] when dslide was still called Macro Slides.  Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide.  Features thave have strong standalone value *and* are not tedious to integrate with dslide via hooks can live in MC.
+MoC was developed alongside [[https://github.com/positron-solutions/dslide][dslide]] when dslide was still called Macro Slides.  Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide.  Features thave have strong standalone value *and* are not tedious to integrate with dslide via hooks can live in MoC.
 *** Settings Profiles
 :PROPERTIES:
 :DESCRIPTION: Change Many Settings At Once
@@ -150,7 +150,7 @@ It can be rather annoying when switching between multiple sets of coherent setti
 :PROPERTIES:
 :DESCRIPTION: Configure Screen Capture
 :END:
-Whenever you change the resolution of a frame for recording, you need to configure the output resolution in OBS.  To start recording, you have to click on OBS.  This kind of work could be tighter and integrated into ~mc-dispatch~.
+Whenever you change the resolution of a frame for recording, you need to configure the output resolution in OBS.  To start recording, you have to click on OBS.  This kind of work could be tighter and integrated into ~moc-dispatch~.
 *** Extensible Transient UI
 :PROPERTIES:
 :DESCRIPTION: Add Your Own Knobs

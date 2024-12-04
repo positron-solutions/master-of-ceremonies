@@ -8,37 +8,37 @@
 #+end_export
 * Tools for Display & Presenting
 #+begin_export html
-<a href="https://melpa.org/#/master-of-ceremonies"><img src="https://melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa package"></a><a href="https://stable.melpa.org/#/master-of-ceremonies"><img src="https://stable.melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa stable package"></a><a href="https://elpa.nongnu.org/nongnu/master-of-ceremonies.html"><img src="https://elpa.nongnu.org/nongnu/master-of-ceremonies.svg" alt="Non-GNU ELPA"></a>
+<a href="https://melpa.org/#/moc"><img src="https://melpa.org/packages/moc-badge.svg" alt="melpa package"></a><a href="https://stable.melpa.org/#/moc"><img src="https://stable.melpa.org/packages/moc-badge.svg" alt="melpa stable package"></a><a href="https://elpa.nongnu.org/nongnu/moc.html"><img src="https://elpa.nongnu.org/nongnu/moc.svg" alt="Non-GNU ELPA"></a>
 #+end_export
 #+include: "manual.org::*Introduction" :only-contents t
 
 ** Status 👷
 This package is still pre-1.0.  Read the NEWS.org and release notes
 
-The ~mc-focus~ command and others are super useful and is used in almost every video or presentation I make!  Therefore, it is made available in this early state.
+The ~moc-focus~ command and others are super useful and is used in almost every video or presentation I make!  Therefore, it is made available in this early state.
 
 Subscribe to [[https://www.youtube.com/@Positron-gv7do][Positron's YouTube channel]] to catch updates on when it's added to package archives and more information about how to use it.
 ** Installation
 #+begin_src elisp
   ;; Via Non-GNU ELPA or MELPA
-  (use-package master-of-ceremonies)
+  (use-package moc)
 
   ;; package-vc
   (package-vc-install
-   '(master-of-ceremonies
-     :url "https://github.com/positron-solutions/master-of-ceremonies.git"))
+   '(moc
+     :url "https://github.com/positron-solutions/moc.git"))
 
   ;; using elpaca's with explicit recipe
-  (use-package master-of-ceremonies
-    :ensure (master-of-ceremonies
+  (use-package moc
+    :ensure (moc
              :host github
-             :repo "positron-solutions/master-of-ceremonies"))
+             :repo "positron-solutions/moc"))
 
   ;; straight with explicit recipe
-  (use-package master-of-ceremonies
-    :straight (master-of-ceremonies
+  (use-package moc
+    :straight (moc
                :type git :host github
-               :repo "positron-solutions/master-of-ceremonies"))
+               :repo "positron-solutions/moc"))
 
   ;; or use manual load-path & require, you brave yak shaver
 #+end_src

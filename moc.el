@@ -1,12 +1,12 @@
-;;; master-of-ceremonies.el --- Master of Ceremonies -*- lexical-binding: t; -*-
+;;; moc.el --- Master of Ceremonies -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 Positron Solutions <contact@positron.solutions>
 
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
-;; Version: 0.3.0
+;; Version: 0.4.0
 ;; Package-Requires: ((emacs "29.4"))
-;; Homepage: http://github.com/positron-solutions/master-of-ceremonies
+;; Homepage: http://github.com/positron-solutions/moc
 
 ;;; License:
 
@@ -32,13 +32,13 @@
 ;;
 ;; Master of ceremonies.  Tools for display, screen capture, and presentation:
 ;;
-;; - fullscreen focus with highlight and playback with `mc-focus'
-;; - set an exact frame resolution for capture with `mc-fixed-frame-set'
-;; - subtle, disappearing cursor with `mc-subtle-cursor-mode'
-;; - hide cursor entirely with `mc-hide-cursor-mode'
-;; - supress all messages with `mc-quiet-mode'
-;; - remap many faces with `mc-face-remap'
-;; - set many options at once with `mc-dispatch'
+;; - fullscreen focus with highlight and playback with `moc-focus'
+;; - set an exact frame resolution for capture with `moc-fixed-frame-set'
+;; - subtle, disappearing cursor with `moc-subtle-cursor-mode'
+;; - hide cursor entirely with `moc-hide-cursor-mode'
+;; - supress all messages with `moc-quiet-mode'
+;; - remap many faces with `moc-face-remap'
+;; - set many options at once with `moc-dispatch'
 ;;
 ;; To all the MCs out there who go by MC Focus, my sincerest apologies for the
 ;; unfortunate naming collision.  We will attempt to bring glory to your name.
@@ -50,44 +50,44 @@
 (require 'rect)
 (require 'transient)
 
-(defgroup master-of-ceremonies nil "Master of ceremonies."
+(defgroup moc nil "Master of ceremonies."
   :prefix 'mc
   :group 'outline)
 
-(defcustom mc-subtle-cursor-blinks 3
+(defcustom moc-subtle-cursor-blinks 3
   "The number of blinks of the subtle cursor.
 When using a transient cursor effect, the duration of cursor visibility
-is the product of this and `mc-subtle-cursor-interval'.
+is the product of this and `moc-subtle-cursor-interval'.
 
 \\[info] elisp::Cursor Parameters."
   :type 'integer)
 
-(defcustom mc-subtle-cursor-interval 0.2
+(defcustom moc-subtle-cursor-interval 0.2
   "Length of cursor blink interval in seconds.
 Values smaller than 0.013 will be treated as 0.013."
   :type 'number)
 
-(defcustom mc-focus-max-height-factor 0.75
+(defcustom moc-focus-max-height-factor 0.75
   "Focused text maximum height fraction.
 This is never exceeded."
   :type 'float)
 
-(defcustom mc-focus-max-width-factor 0.75
+(defcustom moc-focus-max-width-factor 0.75
   "Focused text maximum width fraction.
 This is never exceeded."
   :type 'float)
 
-(defcustom mc-focus-max-area-factor 0.40
+(defcustom moc-focus-max-area-factor 0.40
   "Focused text goal area.
 Area conveniently expresses the dependency between height and width.
 Text that is extremely long or extremely tall will be limited by
-`mc-focus-height-factor-max' and `mc-focus-width-factor-max'.  Text that
+`moc-focus-height-factor-max' and `moc-focus-width-factor-max'.  Text that
 is approximately screen-shaped will often be limited by this factor
 first.  Screen proportions are taken into account, so width usually has
 a larger effect on screen area than height."
   :type 'float)
 
-(defcustom mc-focus-max-scale 20.0
+(defcustom moc-focus-max-scale 20.0
   "Maximum scale of focused text.
 When focusing extremely small regions, this value prevents the text from
 being scaled comically large.  If you just want to render single symbols
@@ -95,19 +95,19 @@ or extremely short expressions, this setting can be used to control
 excessively large results."
   :type 'float)
 
-(defcustom mc-focus-default-remaps '(org-block-no-background)
+(defcustom moc-focus-default-remaps '(org-block-no-background)
   "A list of remap presets to apply to focused text.
-Each symbol is a key of `mc-face-remap-presets'.  You can still manually
-apply or clear remaps using `mc-face-remap' and `mc-face-remap-clear'.
+Each symbol is a key of `moc-face-remap-presets'.  You can still manually
+apply or clear remaps using `moc-face-remap' and `moc-face-remap-clear'.
 The defaults will just be turned on to save time in the usual cases."
   :type '(list symbol))
 
-(defcustom mc-screenshot-dir #'temporary-file-directory
+(defcustom moc-screenshot-dir #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
   :type '(choice string function))
 
-(defcustom mc-screenshot-type 'svg
+(defcustom moc-screenshot-type 'svg
   "What type of file to save.
 Options are same as supported by the backend, `x-export-frames' for now,
 either pdf (default), png, postscript, or svg.  Supported types are
@@ -117,7 +117,7 @@ determined by the compile-time configuration of cairo."
                  (const :tag "PDF" pdf)
                  (const :tag "Postscript" postscript)))
 
-(defcustom mc-fixed-frame-sizes
+(defcustom moc-fixed-frame-sizes
   '((youtube-short . (1080 . 1920))
     (1080p . (1920 . 1080))
     (2k . (2560 . 1440))
@@ -138,7 +138,7 @@ is valid value for the `fullscreen' frame parameter.
                (choice (cons number number)
                        symbol)))
 
-(defcustom mc-face-remap-presets
+(defcustom moc-face-remap-presets
   '((bold . ((default :weight bold)))
     (org-block-no-background . ((org-block :background nil :extend nil))))
   "Face remapping presets.
@@ -150,125 +150,126 @@ forms understood by `face-remap-add-relative'.
 \\[info] elisp::Face Remapping"
   :type 'alist)
 
-(defvar mc--quiet-old-inhibit-message nil)
+(defvar moc--quiet-old-inhibit-message nil)
 
-(defvar mc--blink-cursor-old nil)
-(defvar mc--subtle-cursor-dead-windows nil
+;; TODO naming consistency
+(defvar moc--blink-cursor-old nil)
+(defvar moc--subtle-cursor-dead-windows nil
   "Store windows where the cursor was left off.")
-(defvar mc--subtle-cursor-old-point-buffer nil
+(defvar moc--subtle-cursor-old-point-buffer nil
   "Last position of the cursor when blinking was started.")
-(defvar mc-subtle-cursor-timer nil
-  "Timer started from `mc-subtle-cursor-start'.
-This timer calls `mc-subtle-cursor-timer-function' every
-`mc-subtle-cursor-interval' seconds.")
-(defvar mc-subtle-cursor-blinks-done 0
+(defvar moc-subtle-cursor-timer nil
+  "Timer started from `moc-subtle-cursor-start'.
+This timer calls `moc-subtle-cursor-timer-function' every
+`moc-subtle-cursor-interval' seconds.")
+(defvar moc-subtle-cursor-blinks-done 0
   "Number of blinks done since we started blinking on NS, X, and MS-Windows.")
 
-(defvar-local mc--focus-highlight-overlays nil
+(defvar-local moc--focus-highlight-overlays nil
   "Overlays used to focus text.")
-(defvar-local mc--focus-highlights nil
+(defvar-local moc--focus-highlights nil
   "List of highlight regions for playback.")
-(defvar-local mc--focus-cleaned-text nil
+(defvar-local moc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
 ;; TODO specified space is better
-(defvar-local mc--focus-margin-left nil)
-(defvar-local mc--focus-margin-right nil)
-(defvar-local mc--focus-old-subtle-cursor nil
+(defvar-local moc--focus-margin-left nil)
+(defvar-local moc--focus-margin-right nil)
+(defvar-local moc--focus-old-subtle-cursor nil
   "Whether subtle cursor was active before running MC.")
-(defvar-local mc--focus-old-quiet nil
+(defvar-local moc--focus-old-quiet nil
   "Whehter quiet mode was active before running MC.")
-(defvar-local mc--focus-old-window-config nil)
+(defvar-local moc--focus-old-window-config nil)
 
-(defvar-local mc-focus-base-buffer nil
+(defvar-local moc-focus-base-buffer nil
   "Stores a reference to the buffer MC was called from.
 Focus buffers can be discarded a lot.  This allows buffer locals of a
 base buffer to be relied upon for implementing things.")
 
-(defvar mc--fixed-frame-timer nil)
+(defvar moc--fixed-frame-timer nil)
 
-(defvar-local mc--face-remap-cookies nil)
+(defvar-local moc--face-remap-cookies nil)
 
 ;; * Mass Face Remapping
 
-(defun mc--read-remap (&optional preset)
+(defun moc--read-remap (&optional preset)
   (when-let ((key (or preset
                       (completing-read
                        "Choose a remap preset: "
-                       mc-face-remap-presets))))
-    (cdr (assoc-string key mc-face-remap-presets))))
+                       moc-face-remap-presets))))
+    (cdr (assoc-string key moc-face-remap-presets))))
 
-(defun mc-face-remap-clear ()
+(defun moc-face-remap-clear ()
   (interactive)
-  (while-let ((cookie (pop mc--face-remap-cookies)))
+  (while-let ((cookie (pop moc--face-remap-cookies)))
     (face-remap-remove-relative cookie)))
 
 ;;;###autoload
-(defun mc-face-remap (remap &optional keep-existing)
+(defun moc-face-remap (remap &optional keep-existing)
   "Remap many faces at once.
 REMAP can be a symbol specifying a preset or an alist of FACE REMAP
 pairs.  If any faces have already been remapped, you can pass non-nil
 KEEP-EXISTING"
-  (interactive (list (mc--read-remap) current-prefix-arg))
+  (interactive (list (moc--read-remap) current-prefix-arg))
   (unless keep-existing
-    (mc-face-remap-clear))
+    (moc-face-remap-clear))
   ;; TODO anonymous remapping, perhaps informed by text properties at point to
   ;; select the correct face?
   (let ((remap (if (symbolp remap)
-                   (or (mc--read-remap remap)
+                   (or (moc--read-remap remap)
                        (user-error "Remapping not found"))
                  remap)))
     (mapc (lambda (r)
             (let ((face (car r))
                   (specs (cdr r)))
               (push (face-remap-add-relative face specs)
-                    mc--face-remap-cookies)))
+                    moc--face-remap-cookies)))
           remap)))
 
 ;; * Hide Cursor Mode
 
-(defvar mc-subtle-cursor-mode)          ; compiler appeasement
+(defvar moc-subtle-cursor-mode)          ; compiler appeasement
 
-(define-minor-mode mc-hide-cursor-mode
+(define-minor-mode moc-hide-cursor-mode
   "Make cursor completely hidden."
   :group 'master-of-ceremonies
   (cond
-   (mc-hide-cursor-mode
+   (moc-hide-cursor-mode
     (if (minibufferp)
-        (mc-hide-cursor-mode -1)
-      (when mc-subtle-cursor-mode
-        (mc-subtle-cursor-mode -1))
+        (moc-hide-cursor-mode -1)
+      (when moc-subtle-cursor-mode
+        (moc-subtle-cursor-mode -1))
       (setq-local cursor-type nil)))
    (t
     (setq-local cursor-type (default-value 'cursor-type)))))
 
 ;; * Subtle Cursor Mode
 
-(defun mc-subtle-cursor-start ()
-  "Start the `mc-subtle-cursor-timer'.
-This starts the timer `mc-subtle-cursor-timer', which makes the cursor
+(defun moc-subtle-cursor-start ()
+  "Start the `moc-subtle-cursor-timer'.
+This starts the timer `moc-subtle-cursor-timer', which makes the cursor
 blink if appropriate."
   (cond
    ;; stale hook fired
-   ((null mc-subtle-cursor-mode) (mc-subtle-cursor-mode -1))
+   ((null moc-subtle-cursor-mode) (moc-subtle-cursor-mode -1))
    (t
     ;; TODO detect when buffer contents were changed but cursor stayed in the
     ;; same place.
-    (setq mc--subtle-cursor-old-point-buffer
+    (setq moc--subtle-cursor-old-point-buffer
           (cons (point) (current-buffer)))
-    (when mc-subtle-cursor-timer
-      (cancel-timer mc-subtle-cursor-timer))
+    (when moc-subtle-cursor-timer
+      (cancel-timer moc-subtle-cursor-timer))
     ;; TODO figure out the termination for 1 blink
-    (setq mc-subtle-cursor-blinks-done 1)
-    (setq mc-subtle-cursor-timer
-          (run-with-timer (max 0.013 mc-subtle-cursor-interval)
-                          (max 0.013 mc-subtle-cursor-interval)
-                          #'mc-subtle-cursor-timer-function))
+    (setq moc-subtle-cursor-blinks-done 1)
+    (setq moc-subtle-cursor-timer
+          (run-with-timer (max 0.013 moc-subtle-cursor-interval)
+                          (max 0.013 moc-subtle-cursor-interval)
+                          #'moc-subtle-cursor-timer-function))
     ;; Use the `cursor-type' ON-STATE
     (internal-show-cursor nil t))))
 
-(defun mc-subtle-cursor-timer-function ()
-  "Timer function of timer `mc-subtle-cursor-timer'."
-  (when mc-subtle-cursor-mode
+(defun moc-subtle-cursor-timer-function ()
+  "Timer function of timer `moc-subtle-cursor-timer'."
+  (when moc-subtle-cursor-mode
     (internal-show-cursor nil (not (internal-show-cursor-p))))
   ;; Suspend counting blinks when the w32 menu-bar menu is displayed,
   ;; since otherwise menu tooltips will behave erratically.
@@ -276,23 +277,23 @@ blink if appropriate."
            (w32--menu-bar-in-use))
       ;; XXX guarding this expression upsets the blink count and I don't know
       ;; how it's supposed to work.
-      (setq mc-subtle-cursor-blinks-done (1+ mc-subtle-cursor-blinks-done)))
+      (setq moc-subtle-cursor-blinks-done (1+ moc-subtle-cursor-blinks-done)))
   ;; Each blink is two calls to this function.
-  (when (and (> mc-subtle-cursor-blinks 0)
-             (>= mc-subtle-cursor-blinks-done (* 2 mc-subtle-cursor-blinks)))
-    (when mc-subtle-cursor-timer (cancel-timer mc-subtle-cursor-timer)
-          (setq mc-subtle-cursor-timer nil))
-    (push (selected-window) mc--subtle-cursor-dead-windows)
+  (when (and (> moc-subtle-cursor-blinks 0)
+             (>= moc-subtle-cursor-blinks-done (* 2 moc-subtle-cursor-blinks)))
+    (when moc-subtle-cursor-timer (cancel-timer moc-subtle-cursor-timer)
+          (setq moc-subtle-cursor-timer nil))
+    (push (selected-window) moc--subtle-cursor-dead-windows)
     (when (internal-show-cursor-p)
       (message "Subtle cursor cancelled timer in ON-STATE"))))
 
-(defun mc-subtle-cursor--should-blink ()
+(defun moc-subtle-cursor--should-blink ()
   "Determine whether we should be blinking.
 Returns whether we have any focused non-TTY frame."
-  (and mc-subtle-cursor-mode
-       (not (and (eq (point) (car mc--subtle-cursor-old-point-buffer))
+  (and moc-subtle-cursor-mode
+       (not (and (eq (point) (car moc--subtle-cursor-old-point-buffer))
                  (eq (current-buffer)
-                     (cdr mc--subtle-cursor-old-point-buffer))))
+                     (cdr moc--subtle-cursor-old-point-buffer))))
        (let ((frame-list (frame-list))
              (any-graphical-focused nil))
          (while frame-list
@@ -302,13 +303,13 @@ Returns whether we have any focused non-TTY frame."
                (setf frame-list nil))))
          any-graphical-focused)))
 
-(defun mc-subtle-cursor-check ()
+(defun moc-subtle-cursor-check ()
   "Check if cursor blinking shall be restarted.."
-  (when (mc-subtle-cursor--should-blink)
-    (mc-subtle-cursor-start)))
+  (when (moc-subtle-cursor--should-blink)
+    (moc-subtle-cursor-start)))
 
 ;;;###autoload
-(define-minor-mode mc-subtle-cursor-mode
+(define-minor-mode moc-subtle-cursor-mode
   "Like `blink-cursor-mode' but leaves cursor off.
 This is a modification of `blink-cursor-mode' that immediately
 transitions to the ON-STATE when commands are entered and finishes
@@ -319,7 +320,7 @@ cursor when the user is not moving the point.
 \\[info] elisp::Cursor Parameters.
 
 When you do anything to move the cursor, it will remain visible for the
-product of `mc-subtle-cursor-blinks' and `mc-subtle-cursor-duration'.
+product of `moc-subtle-cursor-blinks' and `moc-subtle-cursor-duration'.
 
 Because this mode conflicts with `blink-cursor-mode', it is turned off when
 found active.
@@ -330,113 +331,113 @@ found active.
 		       no-blinking-cursor
 		       (eq system-type 'ms-dos)))
   (cond
-   (mc-subtle-cursor-mode
-    (setq mc--blink-cursor-old blink-cursor-mode)
+   (moc-subtle-cursor-mode
+    (setq moc--blink-cursor-old blink-cursor-mode)
     (when blink-cursor-mode
       (blink-cursor-mode -1))
-    (when mc-hide-cursor-mode
-      (mc-hide-cursor-mode -1))
+    (when moc-hide-cursor-mode
+      (moc-hide-cursor-mode -1))
     (add-function :after after-focus-change-function
-                  #'mc-subtle-cursor-check)
-    (add-hook 'after-delete-frame-functions #'mc-subtle-cursor-check)
-    (add-hook 'post-command-hook #'mc-subtle-cursor-check)
-    (mc-subtle-cursor-check))
+                  #'moc-subtle-cursor-check)
+    (add-hook 'after-delete-frame-functions #'moc-subtle-cursor-check)
+    (add-hook 'post-command-hook #'moc-subtle-cursor-check)
+    (moc-subtle-cursor-check))
    (t
-    (remove-hook 'post-command-hook #'mc-subtle-cursor-check)
-    (remove-hook 'after-delete-frame-functions #'mc-subtle-cursor-check)
+    (remove-hook 'post-command-hook #'moc-subtle-cursor-check)
+    (remove-hook 'after-delete-frame-functions #'moc-subtle-cursor-check)
     (remove-function after-focus-change-function
-                     #'mc-subtle-cursor-check)
-    (when mc-subtle-cursor-timer
-      (cancel-timer mc-subtle-cursor-timer))
+                     #'moc-subtle-cursor-check)
+    (when moc-subtle-cursor-timer
+      (cancel-timer moc-subtle-cursor-timer))
     ;; Make sure to leave the cursor in the ON-STATE in all windows when
     ;; quitting.
     ;; TODO seems like this never actually happens.  Cursor has an alternate
     ;; state when left around in another window, regardless of whether it was
     ;; blink on or off when the window changed.
-    (while-let ((win (pop mc--subtle-cursor-dead-windows)))
+    (while-let ((win (pop moc--subtle-cursor-dead-windows)))
       (internal-show-cursor win t))
     ;; Selected window likely not in above dead window cleanup and could be in
     ;; blink off state.
     (internal-show-cursor nil t)
-    (setq mc--subtle-cursor-old-point-buffer nil)
-    (when mc--blink-cursor-old
+    (setq moc--subtle-cursor-old-point-buffer nil)
+    (when moc--blink-cursor-old
       (blink-cursor-mode 1)
-      (setq mc--blink-cursor-old nil)))))
+      (setq moc--blink-cursor-old nil)))))
 
 ;; * Quiet mode
 
 ;;;###autoload
-(define-minor-mode mc-quiet-mode
+(define-minor-mode moc-quiet-mode
   "Inhibit messages in the echo area.
 ⚠️ Inhibiting messages is a bit dangerous.  If anything fails, because messages
 are disabled, there may be no obvious user feedback ☠️"
   :group 'master-of-ceremonies
   :global t
   (cond
-   (mc-quiet-mode
+   (moc-quiet-mode
     ;; Naturally the manual sets not to set this, but the point is that the user
     ;; doesn't want to have messages for a while.  If it is never to be turned
     ;; off, how else can messages be avoided except case by case with
     ;; let-binding?
     (unless inhibit-message
-      (setq mc--quiet-old-inhibit-message inhibit-message
+      (setq moc--quiet-old-inhibit-message inhibit-message
             inhibit-message t)))
    (t
-    (setq inhibit-message mc--quiet-old-inhibit-message))))
+    (setq inhibit-message moc--quiet-old-inhibit-message))))
 
 ;; * Fixed Frame Size
 
-(defun mc--fixed-frame-check-cleanup ()
+(defun moc--fixed-frame-check-cleanup ()
   "Clean up hook if not guarding any more frames."
   (let ((frames (frame-list))
         guarded)
     (while (and frames (not guarded))
-      (when (frame-parameter (pop frames) 'mc--fixed-frame-notify)
+      (when (frame-parameter (pop frames) 'moc--fixed-frame-notify)
         (setq guarded t)))
     (unless guarded
-      (remove-hook 'window-size-change-functions #'mc--fixed-frame-notify))))
+      (remove-hook 'window-size-change-functions #'moc--fixed-frame-notify))))
 
-(defun mc--fixed-frame-release (frame)
-  (set-frame-parameter frame 'mc--fixed-frame-goal nil)
-  (mc--fixed-frame-check-cleanup))
+(defun moc--fixed-frame-release (frame)
+  (set-frame-parameter frame 'moc--fixed-frame-goal nil)
+  (moc--fixed-frame-check-cleanup))
 
-(defun mc--fixed-frame-notify (frame)
+(defun moc--fixed-frame-notify (frame)
   "Check if FRAME has the right size."
   (if (frame-parameter frame 'fullscreen)
       ;; Only frames with a non-fullscreen size are guarded, so we bail if they
       ;; have acquired a fullscreen parameter.
       (progn (message "Frame: %s has become fullscreen.  Releasing." frame)
-             (mc--fixed-frame-release frame))
-    (when-let ((size (frame-parameter frame 'mc--fixed-frame-goal)))
-      (mc--fixed-frame-verify frame size))))
+             (moc--fixed-frame-release frame))
+    (when-let ((size (frame-parameter frame 'moc--fixed-frame-goal)))
+      (moc--fixed-frame-verify frame size))))
 
-(defun mc--fixed-frame-verify (frame size)
+(defun moc--fixed-frame-verify (frame size)
   "Verify FRAME is SIZE or schedule correction."
   (let ((width-correction (- (car size) (frame-pixel-width frame)))
         (height-correction (- (cdr size) (frame-pixel-height frame))))
     (unless (and (= width-correction 0)
                  (= height-correction 0)
-                 (null mc--fixed-frame-timer))
-      (setq mc--fixed-frame-timer
-            (run-with-timer 0.0 nil #'mc--fixed-frame-correct-all)))))
+                 (null moc--fixed-frame-timer))
+      (setq moc--fixed-frame-timer
+            (run-with-timer 0.0 nil #'moc--fixed-frame-correct-all)))))
 
 ;;;###autoload
-(defun mc-fixed-frame-release-all ()
+(defun moc-fixed-frame-release-all ()
   "Release all guarded frames."
   (interactive)
   (let ((frames (frame-list)))
     (while-let ((frame (pop frames)))
-      (set-frame-parameter frame 'mc--fixed-frame-goal nil))
-    (mc--fixed-frame-check-cleanup)))
+      (set-frame-parameter frame 'moc--fixed-frame-goal nil))
+    (moc--fixed-frame-check-cleanup)))
 
-(defun mc--fixed-frame-correct (frame size &optional no-set)
+(defun moc--fixed-frame-correct (frame size &optional no-set)
   "Check and correct that FRAME is SIZE.
 When optional NO-SET is non-nil, only check and set once.  Otherwise
 set, check and set."
   ;; Its necessary to set once to find the correction needed to get the exact
   ;; frame size we want.  This same function can set up for itself and will not
   ;; do unnecssary work if no correction is needed.
-  (unless no-set (mc--fixed-frame-set frame size))
+  (unless no-set (moc--fixed-frame-set frame size))
   (let ((width-correction (- (car size) (frame-pixel-width frame)))
         (height-correction (- (cdr size) (frame-pixel-height frame))))
     (unless (and (= width-correction 0)
@@ -444,8 +445,6 @@ set, check and set."
       (let ((frame-resize-pixelwise t))
         (message "making corrections: %sw %sh"
                  width-correction height-correction)
-        (set-frame-parameter frame 'width (cons 'text-pixels (car size)))
-        (set-frame-parameter frame 'user-size t)
         (set-frame-size frame
                         (+ (car size) width-correction)
                         (+ (cdr size) height-correction)
@@ -454,23 +453,23 @@ set, check and set."
                (frame-pixel-width frame)
                (frame-pixel-height frame)))))
 
-(defun mc--fixed-frame-correct-all ()
+(defun moc--fixed-frame-correct-all ()
   "Used as a single-call post-command hook to avoid thrashing."
   ;; Updating the frame size during the `window-size-change-functions' is not a
   ;; good idea.  Temporarily removing the hook was an ineffective strategy in
   ;; this case.  Instead, this function runs in the post command hook and, if
   ;; added, corrects all frames and removes itself.
-  (setq mc--fixed-frame-timer nil)
+  (setq moc--fixed-frame-timer nil)
   (dolist (frame (frame-list))
     (if (frame-parameter frame 'fullscreen)
         ;; Only frames with a non-fullscreen size are guarded, so we bail if they
         ;; have acquired a fullscreen parameter.
         (progn (message "Frame: %s has become fullscreen.  Releasing." frame)
-               (mc--fixed-frame-release frame))
-      (when-let ((size (frame-parameter frame 'mc--fixed-frame-goal)))
-        (mc--fixed-frame-correct frame size)))))
+               (moc--fixed-frame-release frame))
+      (when-let ((size (frame-parameter frame 'moc--fixed-frame-goal)))
+        (moc--fixed-frame-correct frame size)))))
 
-(defun mc--fixed-frame-set (frame size)
+(defun moc--fixed-frame-set (frame size)
   "Set SIZE on FRAME.
 SIZE is either a (H . W) cons or a symbol that can be used as a frame
 parameter for `fullscreen'."
@@ -483,14 +482,14 @@ parameter for `fullscreen'."
           (message "set size: %sw %sh"
                    (frame-pixel-width frame)
                    (frame-pixel-height frame))
-          (mc--fixed-frame-correct frame size t)))
+          (moc--fixed-frame-correct frame size t)))
     (set-frame-parameter nil 'fullscreen size)
     (message "fullscreen: %s" size)))
 
 ;;;###autoload
-(defun mc-fixed-frame-set (frame-size)
+(defun moc-fixed-frame-set (frame-size)
   "Set and maintain a fixed FRAME-SIZE.
-FRAME-SIZE is either a key for `mc-fixed-frame-sizes' or a valid value
+FRAME-SIZE is either a key for `moc-fixed-frame-sizes' or a valid value
 of it.
 
 Will correct the frame size if any window manager silliness attempts to
@@ -506,31 +505,31 @@ these behaviors may become more consistent."
   (interactive (list (completing-read
                       "Select size: "
                       (if (frame-parameter (selected-frame)
-                                           'mc--fixed-frame-revert)
-                          (cons 'revert mc-fixed-frame-sizes)
-                        mc-fixed-frame-sizes))))
+                                           'moc--fixed-frame-revert)
+                          (cons 'revert moc-fixed-frame-sizes)
+                        moc-fixed-frame-sizes))))
   (let* ((frame (selected-frame))
          (revert (string= frame-size "revert"))
          (new (cond
                (revert
-                (frame-parameter (selected-frame) 'mc--fixed-frame-revert))
+                (frame-parameter (selected-frame) 'moc--fixed-frame-revert))
                ((stringp frame-size)
-                (cdr (assoc-string frame-size mc-fixed-frame-sizes)))
+                (cdr (assoc-string frame-size moc-fixed-frame-sizes)))
                ((symbolp frame-size)
-                (cdr (assq frame-size mc-fixed-frame-sizes)))
+                (cdr (assq frame-size moc-fixed-frame-sizes)))
                ((consp frame-size) frame-size)
                (t (error "Unrecognized size: %s" frame-size))))
          (current (if-let ((fullscreen (frame-parameter nil 'fullscreen)))
                       fullscreen
                     (cons (frame-pixel-width)
                           (frame-pixel-height)))))
-    (set-frame-parameter nil 'mc--fixed-frame-revert (if revert nil current))
-    (mc--fixed-frame-set frame new)
+    (set-frame-parameter nil 'moc--fixed-frame-revert (if revert nil current))
+    (moc--fixed-frame-set frame new)
     (when (consp new)
       (if revert
-          (set-frame-parameter frame 'mc--fixed-frame-goal nil)
-        (set-frame-parameter frame 'mc--fixed-frame-goal new)
-        (add-hook 'window-size-change-functions #'mc--fixed-frame-notify)))))
+          (set-frame-parameter frame 'moc--fixed-frame-goal nil)
+        (set-frame-parameter frame 'moc--fixed-frame-goal new)
+        (add-hook 'window-size-change-functions #'moc--fixed-frame-notify)))))
 
 ;; * Master of Ceremonies Dispatch
 ;; Let us tie everything together into.  A transient.
@@ -538,7 +537,7 @@ these behaviors may become more consistent."
 ;; There isn't a ton of consistency in how these are used.  Still in the
 ;; trial-and-error phase of building up an in-transient UI
 
-(defun mc--dispatch-frame-size ()
+(defun moc--dispatch-frame-size ()
   (format
    "current: %s"
    (propertize
@@ -547,11 +546,11 @@ these behaviors may become more consistent."
       (format "%s %s" (frame-pixel-width) (frame-pixel-height)))
     'face 'transient-value)))
 
-(defun mc--dispatch-fixed-frames ()
+(defun moc--dispatch-fixed-frames ()
   (let ((frames (frame-list))
         (fixed 0))
     (while-let ((frame (pop frames)))
-      (when (frame-parameter frame 'mc--fixed-frame-goal)
+      (when (frame-parameter frame 'moc--fixed-frame-goal)
         (setq fixed (1+ fixed))))
     (format
      "release %-3s"
@@ -559,88 +558,88 @@ these behaviors may become more consistent."
          (propertize (format "%3s frames" fixed) 'face 'success)
        ""))))
 
-(defun mc--dispatch-cursor-mode ()
+(defun moc--dispatch-cursor-mode ()
   (if-let ((cursor (if (consp cursor-type)
                        (car cursor-type)
                      (if (eq cursor-type t)
                          (frame-parameter nil 'cursor-type)
                        cursor-type))))
-      (if mc-subtle-cursor-mode
+      (if moc-subtle-cursor-mode
           (propertize (format "subtle %-4s" cursor)
                       'face 'transient-value)
         (propertize (format "%-11s" (symbol-name cursor))
                     'face 'transient-value))
     (propertize "hidden     " 'face 'shadow)))
 
-(defun mc--dispatch-faces-remapped ()
-  (let ((remaps (length mc--face-remap-cookies)))
+(defun moc--dispatch-faces-remapped ()
+  (let ((remaps (length moc--face-remap-cookies)))
     (format
      "clear %s"
      (if (> remaps 0)
          (propertize (format "remaps %-4d" remaps) 'face 'success)
        ""))))
 
-(defun mc--dispatch-default-text-scale ()
+(defun moc--dispatch-default-text-scale ()
   (if default-text-scale-mode
       (propertize (format "scale: %s" (face-attribute 'default :height))
                   'face 'transient-value)
     (propertize "off" 'face 'shadow)))
 
-(defun mc--dispatch-text-scale ()
+(defun moc--dispatch-text-scale ()
   (if text-scale-mode
       (propertize (format "scale: %s" text-scale-mode-amount)
                   'face 'transient-value)
     (propertize "off" 'face 'shadow)))
 
-(defun mc--dispatch-default-text-scale-mode-p ()
+(defun moc--dispatch-default-text-scale-mode-p ()
   default-text-scale-mode)
 
-(defun mc--dispatch-text-scale-mode-p ()
+(defun moc--dispatch-text-scale-mode-p ()
   text-scale-mode)
 
-(defun mc--dispatch-quiet-mode ()
+(defun moc--dispatch-quiet-mode ()
   (format
    "quiet %s"
-   (if mc-quiet-mode
+   (if moc-quiet-mode
        (propertize "on " 'face 'success)
      (propertize "off" 'face 'shadow))))
 
-;;;###autoload (autoload 'mc-dispatch "master-of-ceremonies" nil t)
-(transient-define-prefix mc-dispatch ()
+;;;###autoload (autoload 'moc-dispatch "master-of-ceremonies" nil t)
+(transient-define-prefix moc-dispatch ()
   "You are the MC.
 This is likely the command you want to bind globally to become familiar
 with MC commands and to make many adjustments at once."
   :refresh-suffixes t
   [["Default Text Scale"
-    (:info #'mc--dispatch-default-text-scale)
+    (:info #'moc--dispatch-default-text-scale)
     ("+" "increase" default-text-scale-increase :transient t)
     ("-" "decrease" default-text-scale-decrease :transient t)
     ("=" "reset" default-text-scale-reset :transient transient--do-call
      :inapt-if-nil default-text-scale-mode)]
    ["Buffer Text Scale"
-    (:info #'mc--dispatch-text-scale)
+    (:info #'moc--dispatch-text-scale)
     ("t+" "increase" text-scale-increase :transient t)
     ("t-" "decrease" text-scale-decrease :transient t)
     ("t=" "reset" text-scale-mode :transient transient--do-call
      :inapt-if-non-nil text-scale-mode)]]
   ["Fixed Frame"
-   (:info #'mc--dispatch-frame-size)
-   ("s" "set" mc-fixed-frame-set :transient t)
-   ("R" mc-fixed-frame-release-all :transient t
-    :description mc--dispatch-fixed-frames)]
+   (:info #'moc--dispatch-frame-size)
+   ("s" "set" moc-fixed-frame-set :transient t)
+   ("R" moc-fixed-frame-release-all :transient t
+    :description moc--dispatch-fixed-frames)]
   ["Face Remapping"
-   ("r" "remap" mc-face-remap :transient t)
-   ("c" mc-face-remap-clear :transient t
-    :description mc--dispatch-faces-remapped)]
+   ("r" "remap" moc-face-remap :transient t)
+   ("c" moc-face-remap-clear :transient t
+    :description moc--dispatch-faces-remapped)]
   [["Cursor"
-    (:info #'mc--dispatch-cursor-mode)
-    ("?" "hide" mc-hide-cursor-mode :transient t)
-    ("." "subtle" mc-subtle-cursor-mode :transient t)]
+    (:info #'moc--dispatch-cursor-mode)
+    ("?" "hide" moc-hide-cursor-mode :transient t)
+    ("." "subtle" moc-subtle-cursor-mode :transient t)]
    ["Mode Line"
     ("m" "hide" hide-mode-line-mode :transient t)]
    ["Echo area"
-    ("e" mc-quiet-mode :transient t
-     :description mc--dispatch-quiet-mode)]])
+    ("e" moc-quiet-mode :transient t
+     :description moc--dispatch-quiet-mode)]])
 
 ;; * Screenshot
 
@@ -649,25 +648,25 @@ with MC commands and to make many adjustments at once."
 ;; the way.  There are other packages for building gifs etc that would be
 ;; welcome in MC as optional dependencies.
 
-(defun mc--screenshot-save-path ()
-  (if (stringp mc-screenshot-dir)
-      mc-screenshot-dir
-    (if (functionp mc-screenshot-dir)
-        (or (funcall mc-screenshot-dir)
+(defun moc--screenshot-save-path ()
+  (if (stringp moc-screenshot-dir)
+      moc-screenshot-dir
+    (if (functionp moc-screenshot-dir)
+        (or (funcall moc-screenshot-dir)
             default-directory)
       default-directory)))
 
 ;;;###autoload
-(defun mc-screenshot ()
+(defun moc-screenshot ()
   "Save a screenshot of the current frame as an SVG image.
 This just provides minor conveniences like pre-configured save path with
-`mc-screenshot-dir'."
+`moc-screenshot-dir'."
   (interactive)
   (let* ((timestamp (format-time-string "%F-%H:%M:%S" (current-time)))
          (filename (format "screenshot-%s.svg" timestamp))
-         (dir (mc--screenshot-save-path))
+         (dir (moc--screenshot-save-path))
          (path (concat dir filename))
-         (data (x-export-frames nil mc-screenshot-type)))
+         (data (x-export-frames nil moc-screenshot-type)))
     (unless (file-exists-p dir)
       (make-directory dir t))
     (with-temp-file path
@@ -681,22 +680,22 @@ This just provides minor conveniences like pre-configured save path with
 ;; rewritten while adding new features.
 
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
-(defun mc--focus-refresh (window)
+(defun moc--focus-refresh (window)
   "Window margins persist across buffer changes.
 We need to re-set any margins when the focus buffer becomes visible
 again."
   (if (eq (window-buffer window) (get-buffer "*MC Focus*"))
       (set-window-margins
-       window mc--focus-margin-left mc--focus-margin-right)))
+       window moc--focus-margin-left moc--focus-margin-right)))
 
-(defun mc--focus-clean-properties (text)
+(defun moc--focus-clean-properties (text)
   "Reduce the properties for more succinct playback expressions.
-When using `mc-focus-kill-ring-save', we have to save every single text
+When using `moc-focus-kill-ring-save', we have to save every single text
 property.  Appropriate behavior for this function is to return TEXT only
 with properties that will affect display.  It would be appropriate to
 omit any faces that don't have a visible effect on the result.  It may
 be better to configure away certain faces that are being effectively
-removed by `mc-face-remap'.
+removed by `moc-face-remap'.
 
 Because we don't know the context of the text that is being focused, we
 can't use temporary buffers and font locking to restore properties; the
@@ -715,7 +714,7 @@ text we have is likely incomplete out of context."
      dirty-props)
     clean-string))
 
-(defun mc--focus-translate-overlays (text overlays beg _end buffer)
+(defun moc--focus-translate-overlays (text overlays beg _end buffer)
   "This function may not have the right architecture.
 Feel free to demolish the implementation as needed to support rectangle
 select."
@@ -735,61 +734,61 @@ select."
          clone))
      (cdr overlays))))
 
-(defun mc--focus-cleanup ()
-  (remove-hook 'window-state-change-functions #'mc--focus-refresh)
+(defun moc--focus-cleanup ()
+  (remove-hook 'window-state-change-functions #'moc--focus-refresh)
   ;; hidden cursor is buffer local and naturally goes away, but subtle cursor is
   ;; global and needs to be turned off if it wasn't on when focusing began.
-  (if (not mc--focus-old-quiet)
-      (when mc-quiet-mode
-        (mc-quiet-mode -1))
-    (setq mc--focus-old-quiet nil)
-    (unless mc-quiet-mode
-      (mc-quiet-mode 1)))
-  (if (not mc--focus-old-subtle-cursor)
-      (when mc-subtle-cursor-mode
-        (mc-subtle-cursor-mode -1))
-    (setq mc--focus-old-subtle-cursor nil)
-    (unless mc-subtle-cursor-mode
-      (mc-subtle-cursor-mode 1)))
+  (if (not moc--focus-old-quiet)
+      (when moc-quiet-mode
+        (moc-quiet-mode -1))
+    (setq moc--focus-old-quiet nil)
+    (unless moc-quiet-mode
+      (moc-quiet-mode 1)))
+  (if (not moc--focus-old-subtle-cursor)
+      (when moc-subtle-cursor-mode
+        (moc-subtle-cursor-mode -1))
+    (setq moc--focus-old-subtle-cursor nil)
+    (unless moc-subtle-cursor-mode
+      (moc-subtle-cursor-mode 1)))
 
-  (when mc--focus-old-window-config
-    (set-window-configuration mc--focus-old-window-config))
-  (setq mc--focus-old-window-config nil
-        mc--focus-cleaned-text nil))
+  (when moc--focus-old-window-config
+    (set-window-configuration moc--focus-old-window-config))
+  (setq moc--focus-old-window-config nil
+        moc--focus-cleaned-text nil))
 
 ;; ⚠️ This code is very much a collection of proofs of concept.  Very little of
 ;; it will likely be stable or is of high quality.  You may want to reduce to
 ;; just your use case before attempting to implement a new feature.
-(defun mc--display-fullscreen (text &optional invisibility-spec overlays beg end)
+(defun moc--display-fullscreen (text &optional invisibility-spec overlays beg end)
   "Show TEXT with properties in a fullscreen window.
 🚧 This function is under active development.  The signature is likely
 to change to plist style, using keyword arguments to be more stable /
 user-friendly."
   (when-let ((old (get-buffer "*MC Focus*")))
     (kill-buffer old))
-  (setq mc--focus-old-window-config (current-window-configuration))
+  (setq moc--focus-old-window-config (current-window-configuration))
   (let* ((base (current-buffer))
          (buffer (get-buffer-create "*MC Focus*"))
-         (text (mc--focus-clean-properties text)))
+         (text (moc--focus-clean-properties text)))
     (delete-other-windows)
     (let ((inhibit-message t))
       (switch-to-buffer buffer))
-    (setq-local mc-focus-base-buffer base)
-    (add-hook 'kill-buffer-hook #'mc--focus-cleanup nil t)
-    (mc-focus-mode)
+    (setq-local moc-focus-base-buffer base)
+    (add-hook 'kill-buffer-hook #'moc--focus-cleanup nil t)
+    (moc-focus-mode)
     (setq-local mode-line-format nil)
     (setq buffer-invisibility-spec invisibility-spec)
-    (setq mc--focus-old-quiet
-          mc-quiet-mode)
-    (setq mc--focus-old-subtle-cursor
-          mc-subtle-cursor-mode)
-    (mc-hide-cursor-mode 1)
-    (mc-quiet-mode 1)
+    (setq moc--focus-old-quiet
+          moc-quiet-mode)
+    (setq moc--focus-old-subtle-cursor
+          moc-subtle-cursor-mode)
+    (moc-hide-cursor-mode 1)
+    (moc-quiet-mode 1)
     (read-only-mode -1)
 
     ;; Before we start adding properties, save the input text without additional
     ;; properties.
-    (setq-local mc--focus-cleaned-text text)
+    (setq-local moc--focus-cleaned-text text)
 
     (insert (propertize text
                         'line-prefix nil
@@ -800,7 +799,7 @@ user-friendly."
     ;; trimming all have to work together.  Also max line length support is
     ;; needed for visual lines.
     (when (and overlays beg end)
-      (mc--focus-translate-overlays text overlays beg end buffer))
+      (moc--focus-translate-overlays text overlays beg end buffer))
     ;; TODO serialize overlays for playback
 
     (let* ((w (window-pixel-width))
@@ -810,22 +809,22 @@ user-friendly."
            (text-pixel-w (float (car text-pixel-size)))
            (text-pixel-h (float (cdr text-pixel-size)))
            (text-pixel-area (* text-pixel-w text-pixel-h))
-           (max-scale-horizontal (/ (* w mc-focus-max-width-factor)
+           (max-scale-horizontal (/ (* w moc-focus-max-width-factor)
                                     text-pixel-w))
-           (max-scale-vertical (/ (* h mc-focus-max-height-factor)
+           (max-scale-vertical (/ (* h moc-focus-max-height-factor)
                                   text-pixel-h))
            (max-scale-by-area (/ (* window-pixel-area
-                                    mc-focus-max-area-factor)
+                                    moc-focus-max-area-factor)
                                  text-pixel-area))
            (scale (min max-scale-horizontal
                        max-scale-vertical
                        max-scale-by-area
-                       mc-focus-max-scale))
+                       moc-focus-max-scale))
            (scale-overlay (make-overlay 1 (point-max))))
       (overlay-put scale-overlay 'face `(:height ,scale))
 
-      (mapc (lambda (remap) (mc-face-remap remap t))
-            mc-focus-default-remaps)
+      (mapc (lambda (remap) (moc-face-remap remap t))
+            moc-focus-default-remaps)
 
       ;; Now that the text is its final size, adjust the margins and vertical
       ;; spacing
@@ -837,10 +836,10 @@ user-friendly."
              (margin-top (/ (- h (cdr text-size)) 2.0))
              (margin-lines (/ margin-top (frame-char-height))))
         (set-window-margins nil margin-cols margin-cols)
-        (setq mc--focus-margin-left margin-cols
-              mc--focus-margin-right margin-cols)
+        (setq moc--focus-margin-left margin-cols
+              moc--focus-margin-right margin-cols)
 
-        (add-hook 'window-state-change-functions #'mc--focus-refresh)
+        (add-hook 'window-state-change-functions #'moc--focus-refresh)
 
         (goto-char 0)
         (insert (propertize "\n" 'face `(:height ,margin-lines)))
@@ -848,86 +847,86 @@ user-friendly."
         (setf (overlay-end scale-overlay) (point-max))))
     (read-only-mode 1)))
 
-(defvar-keymap mc-focus-mode-map
+(defvar-keymap moc-focus-mode-map
   :suppress 'nodigits
-  "." #'mc--focus-cursor-toggle
-  "c" #'mc-face-remap-clear
-  "e" #'mc-quiet-mode
-  "h" #'mc-focus-dispatch
-  "l" #'mc-focus-highlight
-  "q" #'mc-focus-quit
-  "r" #'mc-face-remap
-  "s" #'mc-screenshot
-  "u" #'mc-focus-un-highlight
-  "U" #'mc-focus-highlight-clear
-  "w" #'mc-focus-kill-ring-save)
+  "." #'moc--focus-cursor-toggle
+  "c" #'moc-face-remap-clear
+  "e" #'moc-quiet-mode
+  "h" #'moc-focus-dispatch
+  "l" #'moc-focus-highlight
+  "q" #'moc-focus-quit
+  "r" #'moc-face-remap
+  "s" #'moc-screenshot
+  "u" #'moc-focus-un-highlight
+  "U" #'moc-focus-highlight-clear
+  "w" #'moc-focus-kill-ring-save)
 
-(define-derived-mode mc-focus-mode special-mode
+(define-derived-mode moc-focus-mode special-mode
   "Modal controls for focus windows."
   :interactive nil)
 
-(defsubst mc--focus-assert-mode ()
+(defsubst moc--focus-assert-mode ()
   (if-let ((buffer (get-buffer "*MC Focus*")))
       (set-buffer buffer)
     (user-error "No MC buffer found")))
 
-(defun mc-focus-highlight-clear ()
+(defun moc-focus-highlight-clear ()
   "Delete overlays."
   (interactive)
-  (mc--focus-assert-mode)
-  (unless mc--focus-highlights
+  (moc--focus-assert-mode)
+  (unless moc--focus-highlights
     (user-error "No highlights to un-highlight"))
-  (setq mc--focus-highlights nil)
-  (mapc #'delete-overlay mc--focus-highlight-overlays)
-  (setq mc--focus-highlight-overlays nil))
+  (setq moc--focus-highlights nil)
+  (mapc #'delete-overlay moc--focus-highlight-overlays)
+  (setq moc--focus-highlight-overlays nil))
 
-(put 'mc-focus-highlight-clear 'mode 'mc-focus-mode)
+(put 'moc-focus-highlight-clear 'mode 'moc-focus-mode)
 
-(defun mc-focus-quit ()
+(defun moc-focus-quit ()
   "Fullscreen quit command."
   (interactive)
   (if-let ((buffer (get-buffer "*MC Focus*")))
       (kill-buffer buffer)
     (user-error "No MC buffer found")))
 
-(put 'mc-focus-quit 'mode 'mc-focus-mode)
+(put 'moc-focus-quit 'mode 'moc-focus-mode)
 
-(defun mc-focus-highlight (beg end)
+(defun moc-focus-highlight (beg end)
   "Highlight region between BEG and END.
 The shadow face will be applied to remaining unhighlighted regions."
   (interactive "r")
-  (mc--focus-assert-mode)
-  (mc--focus-highlight beg end)
+  (moc--focus-assert-mode)
+  (moc--focus-highlight beg end)
   ;; unnecessary to deactivate the mark when called any other way
   (when (called-interactively-p 't)
     (deactivate-mark))
-  (mc--focus-apply-highlights mc--focus-highlights))
+  (moc--focus-apply-highlights moc--focus-highlights))
 
-(put 'mc-focus-highlight 'mode 'mc-focus-mode)
+(put 'moc-focus-highlight 'mode 'moc-focus-mode)
 
-(defun mc-focus-un-highlight (beg end)
+(defun moc-focus-un-highlight (beg end)
   "Remove highlight in region between BEG and END.
 The shadow face will be added to the region between BEG and END."
   (interactive "r")
-  (mc--focus-assert-mode)
-  (unless mc--focus-highlights
+  (moc--focus-assert-mode)
+  (unless moc--focus-highlights
     (user-error "No highlights to un-highlight"))
-  (mc--focus-un-highlight beg end)
+  (moc--focus-un-highlight beg end)
   ;; unnecessary to deactivate the mark when called any other way
   (when (called-interactively-p 't)
     (deactivate-mark))
-  (mc--focus-apply-highlights mc--focus-highlights))
+  (moc--focus-apply-highlights moc--focus-highlights))
 
-(put 'mc-focus-un-highlight 'mode 'mc-focus-mode)
+(put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
 
-(defun mc--focus-apply-highlights (highlights)
+(defun moc--focus-apply-highlights (highlights)
   "Use to replay HIGHLIGHTS from Elisp programs.
 HIGHLIGHTS is a list of conses of BEG END to be highlighted.  Regions
 not contained by some BEG END will have the shadow face applied.
 HIGHLIGHTS must be partially ordered and with no overlaps or else
 behavior is not guaranteed."
   (let (un-highlights left right)
-    (mapc #'delete-overlay mc--focus-highlight-overlays) ; 🤡 almost forgot
+    (mapc #'delete-overlay moc--focus-highlight-overlays) ; 🤡 almost forgot
     ;; no highlights means shadow everything
     (unless highlights
       (push (cons (point-min) (point-max))
@@ -956,12 +955,12 @@ behavior is not guaranteed."
       (let ((o (make-overlay (car h) (cdr h))))
         ;; TODO customize un-highlight face
         (overlay-put o 'face 'shadow)
-        (push o mc--focus-highlight-overlays)))))
+        (push o moc--focus-highlight-overlays)))))
 
-(defun mc--focus-un-highlight (beg end)
+(defun moc--focus-un-highlight (beg end)
   "Remove region between BEG and END from highlights.
 Preserves total ordering of highlighted spans."
-  (let ((highlights mc--focus-highlights)
+  (let ((highlights moc--focus-highlights)
         keep)
     (while-let ((h (pop highlights)))
       ;; If BEG and END include either or both ends of a highlight, we have to
@@ -983,12 +982,12 @@ Preserves total ordering of highlighted spans."
           (push (cons (car h) beg) keep)
           (push (cons end (cdr h)) keep))
          (t (push h keep)))))
-    (setq mc--focus-highlights (nreverse keep))))
+    (setq moc--focus-highlights (nreverse keep))))
 
-(defun mc--focus-highlight (beg end)
+(defun moc--focus-highlight (beg end)
   "Add region between BEG and END to highlights.
 Preserves total ordering of highlighted spans."
-  (let ((highlights mc--focus-highlights)
+  (let ((highlights moc--focus-highlights)
         keep merge)
     ;; push all regions ending before beg
     (while (and (car highlights)
@@ -1008,25 +1007,25 @@ Preserves total ordering of highlighted spans."
     ;; push remaining regions
     (while highlights
       (push (pop highlights) keep))
-    (setq mc--focus-highlights (nreverse keep))))
+    (setq moc--focus-highlights (nreverse keep))))
 
-(defun mc-focus-kill-ring-save ()
+(defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
   (interactive)
   ;; TODO kill ring save needs a lot of updates for playback.  overlays and
   ;; invisibility spec are completely unsupported.
-  (mc--focus-assert-mode)
+  (moc--focus-assert-mode)
   (let ((expression
-         `(mc-focus
-           ,mc--focus-cleaned-text
-           ',mc--focus-highlights)))
+         `(moc-focus
+           ,moc--focus-cleaned-text
+           ',moc--focus-highlights)))
     (kill-new (prin1-to-string expression)))
   (message "saved focus to kill ring"))
 
-(put 'mc-focus-kill-ring-save  'mode 'mc-focus-mode)
+(put 'moc-focus-kill-ring-save  'mode 'moc-focus-mode)
 
 ;;;###autoload
-(defun mc-focus (text &optional highlights)
+(defun moc-focus (text &optional highlights)
   "Focus selected region or prompt for TEXT.
 Optional HIGHLIGHTS is a list of (BEG END).
 
@@ -1056,73 +1055,73 @@ Expect playback of saved focuses to be unstable."
   ;; buffer.
 
   (if rectangle-mark-mode
-      (mc--display-fullscreen
+      (moc--display-fullscreen
        text buffer-invisibility-spec)
     (if (region-active-p)
-        (mc--display-fullscreen
+        (moc--display-fullscreen
          text buffer-invisibility-spec
          (overlays-in (region-beginning) (region-end))
          (region-beginning) (region-end))
-      (mc--display-fullscreen
+      (moc--display-fullscreen
        text buffer-invisibility-spec)))
   (when highlights
-    (mc--focus-apply-highlights highlights)))
+    (moc--focus-apply-highlights highlights)))
 
-(defun mc--focus-dispatch-screenshot-dir ()
-  (propertize (mc--screenshot-save-path) 'face 'transient-value))
+(defun moc--focus-dispatch-screenshot-dir ()
+  (propertize (moc--screenshot-save-path) 'face 'transient-value))
 
-(defun mc--focus-dispatch-highlights ()
-  (if mc--focus-highlights
+(defun moc--focus-dispatch-highlights ()
+  (if moc--focus-highlights
       (concat
        "clear "
        (propertize
-        (format "%s highlights" (length mc--focus-highlights))
+        (format "%s highlights" (length moc--focus-highlights))
         'face 'transient-value))
     "clear all"))
 
-(defun mc--focus-cursor-toggle ()
+(defun moc--focus-cursor-toggle ()
   (interactive)
-  (if mc-subtle-cursor-mode
-      (mc-subtle-cursor-mode -1)
-    (mc-subtle-cursor-mode 1))
-  (unless mc-subtle-cursor-mode
-    (mc-hide-cursor-mode 1)))
+  (if moc-subtle-cursor-mode
+      (moc-subtle-cursor-mode -1)
+    (moc-subtle-cursor-mode 1))
+  (unless moc-subtle-cursor-mode
+    (moc-hide-cursor-mode 1)))
 
-(put 'mc--focus-cursor-toggle 'mode 'mc-focus-mode)
+(put 'moc--focus-cursor-toggle 'mode 'moc-focus-mode)
 
-;;;###autoload (autoload 'mc-focus-dispatch "master-of-ceremonies" nil t)
-(transient-define-prefix mc-focus-dispatch ()
+;;;###autoload (autoload 'moc-focus-dispatch "master-of-ceremonies" nil t)
+(transient-define-prefix moc-focus-dispatch ()
   "Transient menu for MC Focus mode."
   :transient-non-suffix t
-  ;; Keep this in sync with `mc-focus-mode-map`!
+  ;; Keep this in sync with `moc-focus-mode-map`!
   [["Highlights"
-    ("l" "highlight" mc-focus-highlight)
-    ("u" "un-highlight" mc-focus-highlight-clear
-     :inapt-if-nil mc--focus-highlights)
-    ("U" mc-focus-highlight-clear
-     :inapt-if-nil mc--focus-highlights
-     :description mc--focus-dispatch-highlights)]
+    ("l" "highlight" moc-focus-highlight)
+    ("u" "un-highlight" moc-focus-highlight-clear
+     :inapt-if-nil moc--focus-highlights)
+    ("U" moc-focus-highlight-clear
+     :inapt-if-nil moc--focus-highlights
+     :description moc--focus-dispatch-highlights)]
    ["Face Remapping"
-    ("r" "remap" mc-face-remap)
-    ("c" mc-face-remap-clear
-     :description mc--dispatch-faces-remapped)]
+    ("r" "remap" moc-face-remap)
+    ("c" moc-face-remap-clear
+     :description moc--dispatch-faces-remapped)]
    ["Save"
-    (:info #'mc--focus-dispatch-screenshot-dir)
-    ("s" "screenshot" mc-screenshot)
-    ("w" "kill ring" mc-focus-kill-ring-save)]]
+    (:info #'moc--focus-dispatch-screenshot-dir)
+    ("s" "screenshot" moc-screenshot)
+    ("w" "kill ring" moc-focus-kill-ring-save)]]
   [["Cursor"
-    (:info #'mc--dispatch-cursor-mode)
-    ("." "toggle" mc--focus-cursor-toggle)]
+    (:info #'moc--dispatch-cursor-mode)
+    ("." "toggle" moc--focus-cursor-toggle)]
    ["Echo area"
-    ("e" mc-quiet-mode
-     :description mc--dispatch-quiet-mode)]]
+    ("e" moc-quiet-mode
+     :description moc--dispatch-quiet-mode)]]
   ["Quit"
-   ("q" "quit" mc-focus-quit)])
+   ("q" "quit" moc-focus-quit)])
 
-(put 'mc-focus-dispatch 'mode 'mc-focus-mode)
+(put 'moc-focus-dispatch 'mode 'moc-focus-mode)
 
-(provide 'master-of-ceremonies)
-;;; master-of-ceremonies.el ends here
+(provide 'moc)
+;;; moc.el ends here
 
 ;; Local Variables:
 ;; outline-regexp: ";; \\(*+\\)"

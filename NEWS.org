@@ -11,32 +11,30 @@ This release series will make +mc+ ~moc~ ready for publishing on package archive
 
 ⚠️ The package prefix has been changed to =moc=.  Hopefully this is the final choice.  It's not totally up to me.
 ** Added ✨
-- ~mc-screenshot-type~ customize option added.  Defaults to =svg=.
-- ~mc-focus-base-buffer~ local variable in MC buffers makes it easier to use buffer locals from the base buffer even when invoking MC multiple times and otherwise losing those states
+- ~moc-screenshot-type~ customize option added.  Defaults to =svg=.
+- ~moc-focus-base-buffer~ local variable in MoC buffers makes it easier to use buffer locals from the base buffer even when invoking MoC multiple times and otherwise losing those states
 ** Changed 📈
-- ~mc-screenshot-path~ option was renamed to ~mc-screenshot-dir~
-** Removed 💩
-
+- ~moc-screenshot-path~ option was renamed to ~moc-screenshot-dir~
 ** Fixed 👷
-- ~mc-subtle-cursor-mode~ no longer blinks from non-motion commands
+- ~moc-subtle-cursor-mode~ no longer blinks from non-motion commands
 * v0.3.0 A New Hope 🎄
 Nearly a complete rewrite.  After figuring out what belongs in dslide, this package has become more clearly defined.
 
-The ~mc-focus~ command remains the focal point.  Many of the tools like setting the size, hiding the cursor, or changing faces all serve to enhance ~mc-focus~.
+The ~moc-focus~ command remains the focal point.  Many of the tools like setting the size, hiding the cursor, or changing faces all serve to enhance ~moc-focus~.
 
 ⚠️ The naming and features have undergone heavy renaming and stuff.  Don't expect anything to be exactly the same from 0.2.0.  That version was unmaintained on Github for a while as my changes were only localy evolving.
 ** Added ✨
-- ~mc-dispatch~ to control all the things
-- ~mc-focus-highlight~ and ~mc-focus-un-highlight~  now support multiple highlighted spans
-- ~mc-focus~ now has ~mc-focus-dispatch~ to provide a magit like help / info interface to quickly learn the MC controls
-- ~mc-focus-default-remaps~ will apply ~mc-face-remap~ presets so you don't have to manually do common remaps.  The remaps are still interactive and can be manually tweaked for edge cases.
+- ~moc-dispatch~ to control all the things
+- ~moc-focus-highlight~ and ~moc-focus-un-highlight~  now support multiple highlighted spans
+- ~moc-focus~ now has ~moc-focus-dispatch~ to provide a magit like help / info interface to quickly learn the MoC controls
+- ~moc-focus-default-remaps~ will apply ~moc-face-remap~ presets so you don't have to manually do common remaps.  The remaps are still interactive and can be manually tweaked for edge cases.
 ** Changed 📈
-- ~mc-face-remap~ is the old org mode remapping.  This version is flexible for all situations and supports multiple preset profiles
-- The variables controlling ~mc-focus~ have been renamed / revamped.  The new variables are:
-  + ~mc-focus-max-width-factor~
-  + ~mc-focus-max-height-factor~
-  + ~mc-focus-max-area-factor~
-  + ~mc-focus-max-scale~
+- ~moc-face-remap~ is the old org mode remapping.  This version is flexible for all situations and supports multiple preset profiles
+- The variables controlling ~moc-focus~ have been renamed / revamped.  The new variables are:
+  + ~moc-focus-max-width-factor~
+  + ~moc-focus-max-height-factor~
+  + ~moc-focus-max-area-factor~
+  + ~moc-focus-max-scale~
   These controls are both more flexible and intuitive than whatever was there before.  Naming is more consistent.  Please update.  🎅
 ** Removed 💩
 - Everything related specifically to org mode like hiding markup

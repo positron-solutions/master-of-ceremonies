@@ -1,6 +1,6 @@
 \input texinfo    @c -*- texinfo -*-
 @c %**start of header
-@setfilename mc.info
+@setfilename moc.info
 @settitle 
 @documentencoding UTF-8
 @documentlanguage en
@@ -743,7 +743,7 @@ Public License instead of this License.  But first@comma{} please read
 
 @dircategory Emacs
 @direntry
-* Master of Ceremonies: (mc). Tools for Presentation.
+* Master of Ceremonies: (moc). Tools for Presentation.
 @end direntry
 
 @finalout
@@ -800,16 +800,16 @@ Master of Ceremonies 🎤 is a collection of tools for presenting.  Use it to co
 
 @itemize
 @item
-🎛️ @code{mc-dispatch}  is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
+🎛️ @code{moc-dispatch}  is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
 
 @item
-🔎 @code{mc-focus} is a tool to create@comma{} both live and pre-recorded@comma{} illustrations of code and other text in Emacs.
+🔎 @code{moc-focus} is a tool to create@comma{} both live and pre-recorded@comma{} illustrations of code and other text in Emacs.
 @end itemize
 
 @node Authoring 🖋️
 @chapter Authoring 🖋️
 
-@code{mc-focus} is very powerful for pre-recording sequences of images to build up larger expressions for the audience@comma{} highlighting key points in the content.
+@code{moc-focus} is very powerful for pre-recording sequences of images to build up larger expressions for the audience@comma{} highlighting key points in the content.
 
 Several workflows are supported:
 @itemize
@@ -834,12 +834,12 @@ Several workflows are supported:
 @item
 Select a region of text you wish to display
 @item
-Call @code{mc-focus}.  (this is a command worth binding)
+Call @code{moc-focus}.  (this is a command worth binding)
 @end enumerate
 
-Now you are within the focus buffer.  It uses a modal interface@comma{} like magit@comma{} to quickly author changes and reference the controls.  To see the transient modal interface@comma{} call @code{mc-focus-dispatch} or press the @samp{h} binding.
+Now you are within the focus buffer.  It uses a modal interface@comma{} like magit@comma{} to quickly author changes and reference the controls.  To see the transient modal interface@comma{} call @code{moc-focus-dispatch} or press the @samp{h} binding.
 
-By default the cursor is hidden.  This is because usually you want to make screenshots or do playback.  To activate an ephemeral cursor@comma{} press @samp{.} for @code{mc-subtle-cursor-mode}.  (this mode may be useful for presentation in general).  The subtle cursor disappears whenever you aren't using it!  Very beneficial.
+By default the cursor is hidden.  This is because usually you want to make screenshots or do playback.  To activate an ephemeral cursor@comma{} press @samp{.} for @code{moc-subtle-cursor-mode}.  (this mode may be useful for presentation in general).  The subtle cursor disappears whenever you aren't using it!  Very beneficial.
 
 You can also modify the results several ways:
 @itemize
@@ -858,26 +858,26 @@ Clear highlights with @samp{c}
 @node Persisted Playback ▶️
 @section Persisted Playback ▶️
 
-When you have arrived at a starting or intermediate point you want to play back exactly within Emacs@comma{} the @samp{w} key calls @code{mc-focus-kill-ring-save}.  An expression will be saved to your kill ring that re-creates the currently visible state.
+When you have arrived at a starting or intermediate point you want to play back exactly within Emacs@comma{} the @samp{w} key calls @code{moc-focus-kill-ring-save}.  An expression will be saved to your kill ring that re-creates the currently visible state.
 
 Copy this expression wherever appropriate@comma{} such as the body of a babel block configured as a step in @ref{Top,dslide,,dslide,}.
 
-🚧 Playback is not yet 100% the same as doing a fresh capture with @code{mc-focus}.
+🚧 Playback is not yet 100% the same as doing a fresh capture with @code{moc-focus}.
 
 @node Saving Screenshots 📸
 @section Saving Screenshots 📸
 
-It is of great convenience if the files are saved in the correct place.  Configure @code{mc-screenshot-dir} to be a function that calculates the correct location based on your current project directory.
+It is of great convenience if the files are saved in the correct place.  Configure @code{moc-screenshot-dir} to be a function that calculates the correct location based on your current project directory.
 
 Here's an example that employs a variety of techniques to calculate and persist the user's choice@comma{} per-buffer@comma{} of where to save screenshots.
 
-@code{mc--base-buffer} exists when the current buffer is an @samp{MC Focus} buffer and
+@code{moc--base-buffer} exists when the current buffer is an @samp{MoC Focus} buffer and
 @lisp
 ;; Add this to your use-package :config section
 (defun my-screenshots-dir ()
   (interactive)
   (let ((dir (or (buffer-local-value
-                  'mc--screenshot-dir mc--base-buffer)
+                  'moc--screenshot-dir moc--base-buffer)
                  (expand-file-name
                   "screenshots/"
                   (or (project-root (project-current))
@@ -891,10 +891,10 @@ Here's an example that employs a variety of techniques to calculate and persist 
                               "screenshot directory: ")))
                (setq dir fallback))))
 
-    ;; Persist this choice buffer locally@comma{} using whatever buffer MC was invoked
-    ;; from if we're in an MC buffer.
-    (when mc--base-buffer (set-buffer mc--base-buffer))
-    (setq mc--screenshot-dir dir)))
+    ;; Persist this choice buffer locally@comma{} using whatever buffer MoC was invoked
+    ;; from if we're in an MoC buffer.
+    (when moc--base-buffer (set-buffer moc--base-buffer))
+    (setq moc--screenshot-dir dir)))
 
 ;; configure the function to be called to calculate the correct options at
 ;; runtime
@@ -902,22 +902,22 @@ Here's an example that employs a variety of techniques to calculate and persist 
 
 @end lisp
 
-Now just configure the save type@comma{} @code{mc-screenshot-type}@comma{} which uses the same types as supported by @code{x-export-frames}.
+Now just configure the save type@comma{} @code{moc-screenshot-type}@comma{} which uses the same types as supported by @code{x-export-frames}.
 
 @node Presenting 🎛️
 @chapter Presenting 🎛️
 
-It is recommended to bind the @code{mc-dispatch} interface to a key.  This interface shows many relevant configuration states and provides options to change them.  It also includes some built-in Emacs behaviors@comma{} consolidating these controls into a transient interface.
+It is recommended to bind the @code{moc-dispatch} interface to a key.  This interface shows many relevant configuration states and provides options to change them.  It also includes some built-in Emacs behaviors@comma{} consolidating these controls into a transient interface.
 
 @itemize
 @item
-@code{mc-quiet-mode} suppresses some but not all messages.  User commands that generate @code{user-error} and some other messages may still get through.  ⚠️ Leaving this on can result in confusion@comma{} but it is on by default when using @code{mc-focus} because such messages almost always interrupt taking screenshots.
+@code{moc-quiet-mode} suppresses some but not all messages.  User commands that generate @code{user-error} and some other messages may still get through.  ⚠️ Leaving this on can result in confusion@comma{} but it is on by default when using @code{moc-focus} because such messages almost always interrupt taking screenshots.
 @item
-@code{mc-face-remap} can apply multiple face remappings according to preset profiles.
+@code{moc-face-remap} can apply multiple face remappings according to preset profiles.
 @item
-@code{mc-subtle-cursor-mode} is similar to @code{blink-cursor-mode} but hides itself after motion.  You can use it like a laser pointer during presentation and it gets back out of the way on its own.
+@code{moc-subtle-cursor-mode} is similar to @code{blink-cursor-mode} but hides itself after motion.  You can use it like a laser pointer during presentation and it gets back out of the way on its own.
 @item
-@code{mc-fixed-frame} creates hooks on a target frame that preserve its dimensions.  It has preset resolutions@comma{} so if you always present or capture the screen at target dimensions@comma{} it's great.
+@code{moc-fixed-frame} creates hooks on a target frame that preserve its dimensions.  It has preset resolutions@comma{} so if you always present or capture the screen at target dimensions@comma{} it's great.
 
 🚧 There is an issue with the size maintenance when a transient prefix is active.  Resizing the default text scale can exhibit the issue.  Dismissing the transient fixes it for now.
 @end itemize
@@ -954,7 +954,7 @@ This package is brought to you by @uref{https://github.com/positron-solutions/ds
 
 Open issues and give feedback on feature requests.  Contributions welcome.  This is a non-exhaustive list of things being considered or even planned.
 
-MoC was developed alongside @uref{https://github.com/positron-solutions/dslide, dslide} when dslide was still called Macro Slides.  Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide.  Features thave have strong standalone value @strong{and} are not tedious to integrate with dslide via hooks can live in MC@.
+MoC was developed alongside @uref{https://github.com/positron-solutions/dslide, dslide} when dslide was still called Macro Slides.  Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide.  Features thave have strong standalone value @strong{and} are not tedious to integrate with dslide via hooks can live in MoC@.
 
 @menu
 * Settings Profiles::            Change Many Settings At Once
@@ -970,7 +970,7 @@ It can be rather annoying when switching between multiple sets of coherent setti
 @node Recording Integration
 @subsection Recording Integration
 
-Whenever you change the resolution of a frame for recording@comma{} you need to configure the output resolution in OBS@.  To start recording@comma{} you have to click on OBS@.  This kind of work could be tighter and integrated into @code{mc-dispatch}.
+Whenever you change the resolution of a frame for recording@comma{} you need to configure the output resolution in OBS@.  To start recording@comma{} you have to click on OBS@.  This kind of work could be tighter and integrated into @code{moc-dispatch}.
 
 @node Extensible Transient UI
 @subsection Extensible Transient UI

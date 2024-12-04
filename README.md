@@ -3,20 +3,20 @@
 
 # Tools for Display & Presenting
 
-<a href="https://melpa.org/#/master-of-ceremonies"><img src="https://melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa package"></a><a href="https://stable.melpa.org/#/master-of-ceremonies"><img src="https://stable.melpa.org/packages/master-of-ceremonies-badge.svg" alt="melpa stable package"></a><a href="https://elpa.nongnu.org/nongnu/master-of-ceremonies.html"><img src="https://elpa.nongnu.org/nongnu/master-of-ceremonies.svg" alt="Non-GNU ELPA"></a>
+<a href="https://melpa.org/#/moc"><img src="https://melpa.org/packages/moc-badge.svg" alt="melpa package"></a><a href="https://stable.melpa.org/#/moc"><img src="https://stable.melpa.org/packages/moc-badge.svg" alt="melpa stable package"></a><a href="https://elpa.nongnu.org/nongnu/moc.html"><img src="https://elpa.nongnu.org/nongnu/moc.svg" alt="Non-GNU ELPA"></a>
 
 Master of Ceremonies 🎤 is a collection of tools for presenting. Use it to configure Emacs for live demonstrations and presentations. It can also be used to author content for richer presentations.
 
--   🎛️ `mc-dispatch` is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
+-   🎛️ `moc-dispatch` is a collection of tools to quickly configure a frame for screen sharing or presenting on a projector.
 
--   🔎 `mc-focus` is a tool to create, both live and pre-recorded, illustrations of code and other text in Emacs.
+-   🔎 `moc-focus` is a tool to create, both live and pre-recorded, illustrations of code and other text in Emacs.
 
 
 ## Status 👷
 
 This package is still pre-1.0. Read the NEWS.org and release notes
 
-The `mc-focus` command and others are super useful and is used in almost every video or presentation I make! Therefore, it is made available in this early state.
+The `moc-focus` command and others are super useful and is used in almost every video or presentation I make! Therefore, it is made available in this early state.
 
 Subscribe to [Positron's YouTube channel](https://www.youtube.com/@Positron-gv7do) to catch updates on when it's added to package archives and more information about how to use it.
 
@@ -25,24 +25,24 @@ Subscribe to [Positron's YouTube channel](https://www.youtube.com/@Positron-gv7d
 
 ```elisp
 ;; Via Non-GNU ELPA or MELPA
-(use-package master-of-ceremonies)
+(use-package moc)
 
 ;; package-vc
 (package-vc-install
- '(master-of-ceremonies
-   :url "https://github.com/positron-solutions/master-of-ceremonies.git"))
+ '(moc
+   :url "https://github.com/positron-solutions/moc.git"))
 
 ;; using elpaca's with explicit recipe
-(use-package master-of-ceremonies
-  :ensure (master-of-ceremonies
+(use-package moc
+  :ensure (moc
            :host github
-           :repo "positron-solutions/master-of-ceremonies"))
+           :repo "positron-solutions/moc"))
 
 ;; straight with explicit recipe
-(use-package master-of-ceremonies
-  :straight (master-of-ceremonies
+(use-package moc
+  :straight (moc
              :type git :host github
-             :repo "positron-solutions/master-of-ceremonies"))
+             :repo "positron-solutions/moc"))
 
 ;; or use manual load-path & require, you brave yak shaver
 ```
@@ -50,7 +50,7 @@ Subscribe to [Positron's YouTube channel](https://www.youtube.com/@Positron-gv7d
 
 # Authoring 🖋️
 
-`mc-focus` is very powerful for pre-recording sequences of images to build up larger expressions for the audience, highlighting key points in the content.
+`moc-focus` is very powerful for pre-recording sequences of images to build up larger expressions for the audience, highlighting key points in the content.
 
 Several workflows are supported:
 
@@ -62,11 +62,11 @@ Several workflows are supported:
 ## Live Presentation 🎬
 
 1.  Select a region of text you wish to display
-2.  Call `mc-focus`. (this is a command worth binding)
+2.  Call `moc-focus`. (this is a command worth binding)
 
-Now you are within the focus buffer. It uses a modal interface, like magit, to quickly author changes and reference the controls. To see the transient modal interface, call `mc-focus-dispatch` or press the `h` binding.
+Now you are within the focus buffer. It uses a modal interface, like magit, to quickly author changes and reference the controls. To see the transient modal interface, call `moc-focus-dispatch` or press the `h` binding.
 
-By default the cursor is hidden. This is because usually you want to make screenshots or do playback. To activate an ephemeral cursor, press `.` for `mc-subtle-cursor-mode`. (this mode may be useful for presentation in general). The subtle cursor disappears whenever you aren't using it! Very beneficial.
+By default the cursor is hidden. This is because usually you want to make screenshots or do playback. To activate an ephemeral cursor, press `.` for `moc-subtle-cursor-mode`. (this mode may be useful for presentation in general). The subtle cursor disappears whenever you aren't using it! Very beneficial.
 
 You can also modify the results several ways:
 
@@ -81,27 +81,27 @@ You can also modify the results several ways:
 
 ## Persisted Playback ▶️
 
-When you have arrived at a starting or intermediate point you want to play back exactly within Emacs, the `w` key calls `mc-focus-kill-ring-save`. An expression will be saved to your kill ring that re-creates the currently visible state.
+When you have arrived at a starting or intermediate point you want to play back exactly within Emacs, the `w` key calls `moc-focus-kill-ring-save`. An expression will be saved to your kill ring that re-creates the currently visible state.
 
 Copy this expression wherever appropriate, such as the body of a babel block configured as a step in [dslide](info:dslide#Top).
 
-🚧 Playback is not yet 100% the same as doing a fresh capture with `mc-focus`.
+🚧 Playback is not yet 100% the same as doing a fresh capture with `moc-focus`.
 
 
 ## Saving Screenshots 📸
 
-It is of great convenience if the files are saved in the correct place. Configure `mc-screenshot-dir` to be a function that calculates the correct location based on your current project directory.
+It is of great convenience if the files are saved in the correct place. Configure `moc-screenshot-dir` to be a function that calculates the correct location based on your current project directory.
 
 Here's an example that employs a variety of techniques to calculate and persist the user's choice, per-buffer, of where to save screenshots.
 
-`mc--base-buffer` exists when the current buffer is an `MC Focus` buffer and
+`moc--base-buffer` exists when the current buffer is an `MoC Focus` buffer and
 
 ```elisp
 ;; Add this to your use-package :config section
 (defun my-screenshots-dir ()
   (interactive)
   (let ((dir (or (buffer-local-value
-                  'mc--screenshot-dir mc--base-buffer)
+                  'moc--screenshot-dir moc--base-buffer)
                  (expand-file-name
                   "screenshots/"
                   (or (project-root (project-current))
@@ -115,10 +115,10 @@ Here's an example that employs a variety of techniques to calculate and persist 
                               "screenshot directory: ")))
                (setq dir fallback))))
 
-    ;; Persist this choice buffer locally, using whatever buffer MC was invoked
-    ;; from if we're in an MC buffer.
-    (when mc--base-buffer (set-buffer mc--base-buffer))
-    (setq mc--screenshot-dir dir)))
+    ;; Persist this choice buffer locally, using whatever buffer MoC was invoked
+    ;; from if we're in an MoC buffer.
+    (when moc--base-buffer (set-buffer moc--base-buffer))
+    (setq moc--screenshot-dir dir)))
 
 ;; configure the function to be called to calculate the correct options at
 ;; runtime
@@ -126,17 +126,17 @@ Here's an example that employs a variety of techniques to calculate and persist 
 
 ```
 
-Now just configure the save type, `mc-screenshot-type`, which uses the same types as supported by `x-export-frames`.
+Now just configure the save type, `moc-screenshot-type`, which uses the same types as supported by `x-export-frames`.
 
 
 # Presenting 🎛️
 
-It is recommended to bind the `mc-dispatch` interface to a key. This interface shows many relevant configuration states and provides options to change them. It also includes some built-in Emacs behaviors, consolidating these controls into a transient interface.
+It is recommended to bind the `moc-dispatch` interface to a key. This interface shows many relevant configuration states and provides options to change them. It also includes some built-in Emacs behaviors, consolidating these controls into a transient interface.
 
--   `mc-quiet-mode` suppresses some but not all messages. User commands that generate `user-error` and some other messages may still get through. ⚠️ Leaving this on can result in confusion, but it is on by default when using `mc-focus` because such messages almost always interrupt taking screenshots.
--   `mc-face-remap` can apply multiple face remappings according to preset profiles.
--   `mc-subtle-cursor-mode` is similar to `blink-cursor-mode` but hides itself after motion. You can use it like a laser pointer during presentation and it gets back out of the way on its own.
--   `mc-fixed-frame` creates hooks on a target frame that preserve its dimensions. It has preset resolutions, so if you always present or capture the screen at target dimensions, it's great.
+-   `moc-quiet-mode` suppresses some but not all messages. User commands that generate `user-error` and some other messages may still get through. ⚠️ Leaving this on can result in confusion, but it is on by default when using `moc-focus` because such messages almost always interrupt taking screenshots.
+-   `moc-face-remap` can apply multiple face remappings according to preset profiles.
+-   `moc-subtle-cursor-mode` is similar to `blink-cursor-mode` but hides itself after motion. You can use it like a laser pointer during presentation and it gets back out of the way on its own.
+-   `moc-fixed-frame` creates hooks on a target frame that preserve its dimensions. It has preset resolutions, so if you always present or capture the screen at target dimensions, it's great.
     
     🚧 There is an issue with the size maintenance when a transient prefix is active. Resizing the default text scale can exhibit the issue. Dismissing the transient fixes it for now.
 
@@ -160,7 +160,7 @@ This package is brought to you by [dslide](https://github.com/positron-solutions
 
 Open issues and give feedback on feature requests. Contributions welcome. This is a non-exhaustive list of things being considered or even planned.
 
-MoC was developed alongside [dslide](https://github.com/positron-solutions/dslide) when dslide was still called Macro Slides. Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide. Features thave have strong standalone value **and** are not tedious to integrate with dslide via hooks can live in MC.
+MoC was developed alongside [dslide](https://github.com/positron-solutions/dslide) when dslide was still called Macro Slides. Features where Dslide can benefit from the out-of-the-box behavior will be integrated into dslide. Features thave have strong standalone value **and** are not tedious to integrate with dslide via hooks can live in MoC.
 
 
 ### Settings Profiles
@@ -170,7 +170,7 @@ It can be rather annoying when switching between multiple sets of coherent setti
 
 ### Recording Integration
 
-Whenever you change the resolution of a frame for recording, you need to configure the output resolution in OBS. To start recording, you have to click on OBS. This kind of work could be tighter and integrated into `mc-dispatch`.
+Whenever you change the resolution of a frame for recording, you need to configure the output resolution in OBS. To start recording, you have to click on OBS. This kind of work could be tighter and integrated into `moc-dispatch`.
 
 
 ### Extensible Transient UI
