@@ -107,6 +107,16 @@ The defaults will just be turned on to save time in the usual cases."
 Directory path is a string."
   :type '(choice string function))
 
+(defcustom mc-screenshot-type 'svg
+  "What type of file to save.
+Options are same as supported by the backend, `x-export-frames' for now,
+either pdf (default), png, postscript, or svg.  Supported types are
+determined by the compile-time configuration of cairo."
+  :type '(choice (const :tag "PNG" png)
+                 (const :tag "Scalable Vector Graphics" svg)
+                 (const :tag "PDF" pdf)
+                 (const :tag "Postscript" postscript)))
+
 (defcustom mc-fixed-frame-sizes
   '((youtube-short . (1080 . 1920))
     (1080p . (1920 . 1080))
@@ -640,7 +650,7 @@ This just provides minor conveniences like pre-configured save path with
          (filename (format "screenshot-%s.svg" timestamp))
          (dir (mc--screenshot-save-path))
          (path (concat dir filename))
-         (data (x-export-frames nil 'svg)))
+         (data (x-export-frames nil mc-screenshot-type)))
     (unless (file-exists-p dir)
       (make-directory dir t))
     (with-temp-file path
