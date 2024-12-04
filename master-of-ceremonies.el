@@ -251,6 +251,8 @@ blink if appropriate."
    ;; stale hook fired
    ((null mc-subtle-cursor-mode) (mc-subtle-cursor-mode -1))
    (t
+    ;; TODO detect when buffer contents were changed but cursor stayed in the
+    ;; same place.
     (setq mc--subtle-cursor-old-point-buffer
           (cons (point) (current-buffer)))
     (when mc-subtle-cursor-timer
