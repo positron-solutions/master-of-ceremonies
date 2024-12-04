@@ -1036,7 +1036,8 @@ Preserves total ordering of highlighted spans."
   (moc--focus-assert-mode)
   (let ((expression
          `(moc-focus
-           :invisibility-spec ,buffer-invisibility-spec
+           ;; TODO overlays, beg end.
+           :invisibility-spec ',buffer-invisibility-spec
            :string ,moc--focus-cleaned-text
            :highlights ',moc--focus-highlights)))
     (kill-new (prin1-to-string expression)))
