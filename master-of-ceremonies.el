@@ -102,7 +102,7 @@ apply or clear remaps using `mc-face-remap' and `mc-face-remap-clear'.
 The defaults will just be turned on to save time in the usual cases."
   :type '(list symbol))
 
-(defcustom mc-screenshot-path #'temporary-file-directory
+(defcustom mc-screenshot-dir #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
   :type '(choice string function))
@@ -633,10 +633,10 @@ with MC commands and to make many adjustments at once."
 ;; welcome in MC as optional dependencies.
 
 (defun mc--screenshot-save-path ()
-  (if (stringp mc-screenshot-path)
-      mc-screenshot-path
-    (if (functionp mc-screenshot-path)
-        (or (funcall mc-screenshot-path)
+  (if (stringp mc-screenshot-dir)
+      mc-screenshot-dir
+    (if (functionp mc-screenshot-dir)
+        (or (funcall mc-screenshot-dir)
             default-directory)
       default-directory)))
 
@@ -644,7 +644,7 @@ with MC commands and to make many adjustments at once."
 (defun mc-screenshot ()
   "Save a screenshot of the current frame as an SVG image.
 This just provides minor conveniences like pre-configured save path with
-`mc-screenshot-path'."
+`mc-screenshot-dir'."
   (interactive)
   (let* ((timestamp (format-time-string "%F-%H:%M:%S" (current-time)))
          (filename (format "screenshot-%s.svg" timestamp))
@@ -1032,7 +1032,7 @@ Expect playback of saved focuses to be unstable."
   (when highlights
     (mc--focus-apply-highlights highlights)))
 
-(defun mc--focus-dispatch-screenshot-path ()
+(defun mc--focus-dispatch-screenshot-dir ()
   (propertize (mc--screenshot-save-path) 'face 'transient-value))
 
 (defun mc--focus-dispatch-highlights ()
@@ -1071,7 +1071,7 @@ Expect playback of saved focuses to be unstable."
     ("c" mc-face-remap-clear
      :description mc--dispatch-faces-remapped)]
    ["Save"
-    (:info #'mc--focus-dispatch-screenshot-path)
+    (:info #'mc--focus-dispatch-screenshot-dir)
     ("s" "screenshot" mc-screenshot)
     ("w" "kill ring" mc-focus-kill-ring-save)]]
   [["Cursor"

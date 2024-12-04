@@ -1,6 +1,7 @@
 #+title:	What's New
 #+author:	Positron
 #+email:	contact@positron.solutions
+- ~mc-screenshot-path~ option was renamed to ~mc-screenshot-dir~
 * v0.3.0 A New Hope 🎄
 Nearly a complete rewrite.  After figuring out what belongs in dslide, this package has become more clearly defined.
 
