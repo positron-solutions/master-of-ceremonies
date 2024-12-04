@@ -72,13 +72,16 @@ It is of great convenience if the files are saved in the correct place.  Configu
 
 Here's an example that employs a variety of techniques to calculate and persist the user's choice, per-buffer, of where to save screenshots.
 
-~mc--base-buffer~ exists when the current buffer is an =MC Focus= buffer and
+~mc-focus-base-buffer~ exists when the current buffer is an =MC Focus= buffer and
 #+begin_src elisp
   ;; Add this to your use-package :config section
   (defun my-screenshots-dir ()
     (interactive)
-    (let ((dir (or (buffer-local-value
-                    'mc--screenshot-dir mc--base-buffer)
+    (let ((dir (or (and mc-focus-base-buffer
+                        (buffer-local-boundp
+                         'mc--screenshot-dir mc-focus-base-buffer
+                         (buffer-local-value
+                          'mc--screenshot-dir mc-focus-base-buffer)))
                    (expand-file-name
                     "screenshots/"
                     (or (project-root (project-current))
@@ -94,8 +97,8 @@ Here's an example that employs a variety of techniques to calculate and persist 
 
       ;; Persist this choice buffer locally, using whatever buffer MC was invoked
       ;; from if we're in an MC buffer.
-      (when mc--base-buffer (set-buffer mc--base-buffer))
-      (setq mc--screenshot-dir dir)))
+      (when mc-focus-base-buffer (set-buffer mc-focus-base-buffer))
+      (setq-local mc--screenshot-dir dir)))
 
   ;; configure the function to be called to calculate the correct options at
   ;; runtime

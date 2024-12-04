@@ -177,6 +177,11 @@ This timer calls `mc-subtle-cursor-timer-function' every
   "Whehter quiet mode was active before running MC.")
 (defvar-local mc--focus-old-window-config nil)
 
+(defvar-local mc-focus-base-buffer nil
+  "Stores a reference to the buffer MC was called from.
+Focus buffers can be discarded a lot.  This allows buffer locals of a
+base buffer to be relied upon for implementing things.")
+
 (defvar mc--fixed-frame-timer nil)
 
 (defvar-local mc--face-remap-cookies nil)
@@ -751,11 +756,13 @@ user-friendly."
   (when-let ((old (get-buffer "*MC Focus*")))
     (kill-buffer old))
   (setq mc--focus-old-window-config (current-window-configuration))
-  (let* ((buffer (get-buffer-create "*MC Focus*"))
+  (let* ((base (current-buffer))
+         (buffer (get-buffer-create "*MC Focus*"))
          (text (mc--focus-clean-properties text)))
     (delete-other-windows)
     (let ((inhibit-message t))
       (switch-to-buffer buffer))
+    (setq-local mc-focus-base-buffer base)
     (add-hook 'kill-buffer-hook #'mc--focus-cleanup nil t)
     (mc-focus-mode)
     (setq-local mode-line-format nil)

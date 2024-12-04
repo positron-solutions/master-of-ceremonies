@@ -8,6 +8,7 @@ This release series will make +mc+ ~moc~ ready for publishing on package archive
 ⚠️ The package prefix has been changed to =moc=.  Hopefully this is the final choice.  It's not totally up to me.
 ** Added ✨
 - ~mc-screenshot-type~ customize option added.  Defaults to =svg=.
+- ~mc-focus-base-buffer~ local variable in MC buffers makes it easier to use buffer locals from the base buffer even when invoking MC multiple times and otherwise losing those states
 ** Changed 📈
 - ~mc-screenshot-path~ option was renamed to ~mc-screenshot-dir~
 ** Removed 💩
