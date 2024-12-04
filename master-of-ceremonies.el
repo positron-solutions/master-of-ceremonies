@@ -5,7 +5,7 @@
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
 ;; Version: 0.3.0
-;; Package-Requires: ((emacs "30.0.90"))
+;; Package-Requires: ((emacs "29.4"))
 ;; Homepage: http://github.com/positron-solutions/master-of-ceremonies
 
 ;;; License:
@@ -180,7 +180,6 @@ This timer calls `mc-subtle-cursor-timer-function' every
                        mc-face-remap-presets))))
     (cdr (assoc-string key mc-face-remap-presets))))
 
-;;;###autoload
 (defun mc-face-remap-clear ()
   (interactive)
   (while-let ((cookie (pop mc--face-remap-cookies)))
@@ -284,6 +283,7 @@ Returns whether we have any focused non-TTY frame."
   (when (mc-subtle-cursor--should-blink)
     (mc-subtle-cursor-start)))
 
+;;;###autoload
 (define-minor-mode mc-subtle-cursor-mode
   "Like `blink-cursor-mode' but leaves cursor off.
 This is a modification of `blink-cursor-mode' that immediately
@@ -340,6 +340,7 @@ found active.
 
 ;; * Quiet mode
 
+;;;###autoload
 (define-minor-mode mc-quiet-mode
   "Inhibit messages in the echo area.
 ⚠️ Inhibiting messages is a bit dangerous.  If anything fails, because messages
@@ -577,7 +578,7 @@ these behaviors may become more consistent."
        (propertize "on " 'face 'success)
      (propertize "off" 'face 'shadow))))
 
-;;;###autoload
+;;;###autoload (autoload 'mc-dispatch "master-of-ceremonies" nil t)
 (transient-define-prefix mc-dispatch ()
   "You are the MC.
 This is likely the command you want to bind globally to become familiar
@@ -629,6 +630,7 @@ with MC commands and to make many adjustments at once."
             default-directory)
       default-directory)))
 
+;;;###autoload
 (defun mc-screenshot ()
   "Save a screenshot of the current frame as an SVG image.
 This just provides minor conveniences like pre-configured save path with
@@ -1042,10 +1044,11 @@ Expect playback of saved focuses to be unstable."
 
 (put 'mc--focus-cursor-toggle 'mode 'mc-focus-mode)
 
-;; Keep this in sync with `mc-focus-mode-map`!
+;;;###autoload (autoload 'mc-focus-dispatch "master-of-ceremonies" nil t)
 (transient-define-prefix mc-focus-dispatch ()
   "Transient menu for MC Focus mode."
   :transient-non-suffix t
+  ;; Keep this in sync with `mc-focus-mode-map`!
   [["Highlights"
     ("l" "highlight" mc-focus-highlight)
     ("u" "un-highlight" mc-focus-highlight-clear
