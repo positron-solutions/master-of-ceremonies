@@ -165,6 +165,12 @@ This timer calls `moc-subtle-cursor-timer-function' every
 (defvar moc-subtle-cursor-blinks-done 0
   "Number of blinks done since we started blinking on NS, X, and MS-Windows.")
 
+(defvar-local moc--focus-overlay-specs nil
+  "Serialized specifications of overlays.
+Structure is a list of (BEG END . PROPS) where PROPS comes from
+`overlay-properties.'")
+(defvar-local moc--focus-overlays nil
+  "Overlays applied from `moc--focus-overlay-specs'.")
 (defvar-local moc--focus-highlight-overlays nil
   "Overlays used to highlight focused text.
 Each region is a cons of BEG END.  In actuality these overlays are a
@@ -730,26 +736,55 @@ text we have is likely incomplete out of context."
      dirty-props)
     clean-string))
 
-(defun moc--focus-translate-overlays (text overlays beg _end buffer)
-  "Translate OVERLAYS so that they apply correctly to TEXT.
-⚠️ Just kidding.  BEG works for a normal selection, but this is probably
-broken for rectangle selections.  Feel free to demolish the
-implementation as needed to support rectangle select."
-  (let ((max-pos (1+ (length text))))
-    (mapcar
-     (lambda (o)
-       (when-let* ((old-start (overlay-start o))
-                   (old-end (overlay-end o))
-                   (new-start (max (- old-start (1- beg)) 1))
-                   (new-end (min (- old-end (1- beg)) max-pos))
-                   (clone (make-overlay new-start new-end buffer))
-                   (props (overlay-properties o)))
-         (while-let ((key (pop props))
-                     (val (pop props)))
-           (overlay-put clone key val))
-         (overlay-put clone 'evaporate t)
-         clone))
-     (cdr overlays))))
+(defun moc--focus-serialize-overlay (overlay spans)
+  "Serialize OVERLAY properties for playback etc.
+The overlay's start and end are translated using BEG and SPANS to ensure
+that the resulting overlay information will result in an overlay that
+accurately applies to the same text in the focus buffer that OVERLAY
+applies to in the source buffer.
+
+The return value is (BEG END . PROPS) where PROPS is the list returned
+from `overlay-properties'.
+
+🚧 This first pass only does basic translation without consideration for
+trimming.  SPANS is just ((BEG . END)) for now."
+  (let ((props (overlay-properties overlay))
+        (beg (caar spans))
+        clean)
+    ;; TODO translates sizes beyond SPANS
+
+    ;; An overlay beginning right on beg will start at buffer position 1, so we
+    ;; have to add 1 (by subtracting -1)
+    (push (max 1 (- (overlay-start overlay) beg -1)) clean)
+    (push (max 1 (- (overlay-end overlay) beg -1)) clean)
+    (while-let ((prop (pop props)))
+      ;; TODO make "nice" properties configurable and test out line-prefix to be
+      ;; sure it plays nice with our centering.
+      (when (member prop '(button
+                           display
+                           face
+                           height
+                           invisible
+                           line-height
+                           line-prefix
+                           line-spacing
+                           priority
+                           wrap-prefix))
+        (push prop clean)
+        (push (pop props) clean)))
+    (nreverse clean)))
+
+(defun moc--focus-apply-overlays (overlay-specs)
+  "Apply OVERLAY-SPECS to the buffer.
+OVERLAY-SPECS is a list of (BEG END . PROPS) where PROPS is obtained
+from `overlay-properties'."
+  (while-let ((o (pop overlay-specs)))
+    (let* ((beg (pop o))
+           (end (pop o))
+           (ov (make-overlay beg end)))
+      (while-let ((prop (pop o)))
+        (overlay-put ov prop (pop o)))
+      (push ov moc--focus-overlays))))
 
 (defun moc--focus-cleanup ()
   "Clean up state for focus buffer upon kill."
@@ -789,10 +824,8 @@ See `mc-focus' for meaning of keys in ARGS."
   (setq moc--focus-old-window-config (current-window-configuration))
   (let* ((base (current-buffer))
          (buffer (get-buffer-create "*MC Focus*"))
-         (beg (plist-get args :beg))
-         (end (plist-get args :end))
          (text (moc--focus-clean-properties (plist-get args :string)))
-         (overlays (plist-get args :overlays))
+         (overlay-specs (plist-get args :overlays))
          (invisibility-spec (plist-get args :invisibility-spec))
          (highlights (plist-get args :highlights))
          (obscures (plist-get args :obscures)))
@@ -817,19 +850,14 @@ See `mc-focus' for meaning of keys in ARGS."
     ;; Before we start adding properties, save the input text without additional
     ;; properties.
     (setq-local moc--focus-cleaned-text text)
+    (setq-local moc--focus-overlay-specs overlay-specs)
+    (when overlay-specs
+      (moc--focus-apply-overlays overlay-specs))
 
     (insert (propertize text
                         'line-prefix nil
                         'wrap-prefix nil))
 
-    ;; XXX Extra super broken for rectangle selections with overlays
-    ;; apply translated overlays after buffer has text
-    ;; ⚠️ This method is totally not going to work.  Translation, rectangle, and
-    ;; trimming all have to work together.  Also max line length support is
-    ;; needed for visual lines.
-    (when (and overlays beg end)
-      (moc--focus-translate-overlays text overlays beg end buffer))
-    ;; TODO serialize overlays for playback
 
     (let* ((w (window-pixel-width))
            (h (window-pixel-height))
@@ -1149,7 +1177,7 @@ OBSCURES is a list of conses of BEG END to be obscured."
   (moc--focus-assert-mode)
   (let ((expression
          `(moc-focus
-           ;; TODO overlays, beg end.
+           :overlays ',moc--focus-overlay-specs
            :invisibility-spec ',buffer-invisibility-spec
            :string ,moc--focus-cleaned-text
            :highlights ',moc--focus-highlights
@@ -1164,8 +1192,9 @@ OBSCURES is a list of conses of BEG END to be obscured."
   "Focus selected region.
 ARGS contains the following keys:
 
-- :beg beginning of region
-- :end of region
+- :overlays is a list of (BEG END . PROPS) where PROPS is returned by
+  `overlay-properties'.  Each element of the list is used to rehydrate an
+  overlay to recreate the capture source.
 - :invisibility-spec propagates the buffer's invisibility spec
 - :highlights a list of conses of BEG END that will be highlighted
 - :obscures a list of conses of BEG END that will be obscured
@@ -1185,18 +1214,21 @@ interactive use case of highlighting a region is stable and very useful."
               (beg (if rectangle-mark-mode
                        (region-beginning)
                      (if whitespace region-bol
-                       (region-beginning)))))
+                       (region-beginning))))
+              ;; XXX this is incomplete
+              ;; TODO trimming support
+              (spans (list (cons beg (region-end))))
+              (overlays (unless rectangle-mark-mode
+                          (overlays-in beg (region-end))))
+              (translated-overlays (mapcar (lambda (overlay)
+                                             (moc--focus-serialize-overlay
+                                              overlay spans))
+                                           overlays)))
          (list
-          :beg beg
-          :end (region-end)
           :invisibility-spec buffer-invisibility-spec
           :highlights nil
           :obscures nil
-          :overlays (if rectangle-mark-mode nil (overlays-in beg (region-end)))
-          ;; 🚧 String may be really unstable because it's less general than
-          ;; the rectangle case.  Trimming and overlay translation depend on
-          ;; knowing the buffer location corresponding to the beginning of
-          ;; each line in the text we ultimately draw.
+          :overlays translated-overlays
           :string (if rectangle-mark-mode
                       (string-join
                        (extract-rectangle (region-beginning) (region-end))

@@ -6,7 +6,18 @@
 #+export_file_name: RELEASE.md
 #+options: toc:nil broken-links:nil num:nil
 
-* v0.4.0 Packaging 🍱 :latest:
+* v0.5.0 Overlay Playback 🕶️ :latest:
+In preparation for trimming, overlay support has been rearranged to perform translation and cleaning of overlays prior to first display.  By passing in serialized overlays from the interactive command, serialization and playback was more natural to support.
+
+🚧 The playback structure will likely change again after trimming support is added.
+** Added
+- Serialize source overlays for playback
+- Clean source overlays to remove information that displays poorly in the focus buffer
+** Changed
+- =:beg= and =:end= are no longer keys for ~moc-focus~ playback
+** Fixed
+- Multi-line regions selected with leading whitespace will have the whitespace included.  (Later trimming support will remove leading whitespace that is extraneous)
+* v0.4.0 Packaging 🍱
 This release series will make +mc+ ~moc~ ready for publishing on package archives.
 
 ⚠️ The package prefix has been changed to =moc=.  Hopefully this is the final choice.  It's not totally up to me.
