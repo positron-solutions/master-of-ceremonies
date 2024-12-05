@@ -100,7 +100,7 @@ excessively large results."
 Each symbol is a key of `moc-face-remap-presets'.  You can still manually
 apply or clear remaps using `moc-face-remap' and `moc-face-remap-clear'.
 The defaults will just be turned on to save time in the usual cases."
-  :type '(list symbol))
+  :type '(repeat symbol))
 
 (defcustom moc-screenshot-dir #'temporary-file-directory
   "Directory path or function that returns a directory path.
@@ -181,6 +181,8 @@ obscure text and their implementation is a bit simpler.")
   "List of obscured regions.")
 (defvar-local moc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
+(defvar-local moc--focus-old-fringe-background nil
+  "For restoring the fringe background.")
 (defvar-local moc--focus-old-subtle-cursor nil
   "Whether subtle cursor was active before running MC.")
 (defvar-local moc--focus-old-quiet nil
@@ -695,10 +697,12 @@ This just provides minor conveniences like pre-configured save path with
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
   "Refresh buffer in WINDOW if buffer is visible again."
-  (if (eq (window-buffer window) (get-buffer "*MC Focus*"))
-      ;; TODO replace the old margin maintenence with dynamic centering for
-      ;; display in non-fullscreen buffers
-      (identity 1)))
+  (when (window-live-p window)
+        (when (eq (window-buffer window) (get-buffer "*MC Focus*"))
+          (set-window-fringes 0 0)
+          (set-face-attribute 'fringe (window-frame window)
+                              :background 'unspecified)
+          (set-window-margins window nil))))
 
 (defun moc--focus-clean-properties (text)
   "Reduce the properties for more succinct playback expressions.
@@ -752,6 +756,10 @@ implementation as needed to support rectangle select."
   (remove-hook 'window-state-change-functions #'moc--focus-refresh)
   ;; hidden cursor is buffer local and naturally goes away, but subtle cursor is
   ;; global and needs to be turned off if it wasn't on when focusing began.
+  ;; XXX two MC buffers could restore a modified value
+  (when moc--focus-old-fringe-background
+    (set-face-attribute 'fringe (selected-frame) :background
+                        moc--focus-old-fringe-background))
   (if (not moc--focus-old-quiet)
       (when moc-quiet-mode
         (moc-quiet-mode -1))
@@ -795,6 +803,8 @@ See `mc-focus' for meaning of keys in ARGS."
     (add-hook 'kill-buffer-hook #'moc--focus-cleanup nil t)
     (moc-focus-mode)
     (setq-local mode-line-format nil)
+    (setq moc--focus-old-fringe-background (face-attribute 'fringe :background))
+    (set-face-attribute 'fringe (selected-frame) :background 'unspecified)
     (setq buffer-invisibility-spec invisibility-spec)
     (setq moc--focus-old-quiet
           moc-quiet-mode)
@@ -866,9 +876,9 @@ See `mc-focus' for meaning of keys in ARGS."
         ;; TODO dynamically maintain this
         (let ((o (make-overlay (point-min) (point-max))))
           (overlay-put o 'line-prefix (propertize " " 'display `(space :align-to (,margin-left)))))
-
+        (set-window-fringes (selected-window) 0 0)
         (set-window-margins (selected-window) nil nil)
-        (add-hook 'window-state-change-functions #'moc--focus-refresh)
+        (add-hook 'window-state-change-functions #'moc--focus-refresh nil t)
 
         (goto-char 0)
         (insert (propertize "\n" 'face `(:height ,margin-lines)))
