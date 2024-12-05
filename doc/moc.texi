@@ -749,7 +749,7 @@ Public License instead of this License.  But first@comma{} please read
 @finalout
 @titlepage
 @title 
-@subtitle for version 0.4.0
+@subtitle for version 0.5.0
 @author Positron Solutions
 @page
 @vskip 0pt plus 1filll
@@ -883,8 +883,11 @@ Here's an example that employs a variety of techniques to calculate and persist 
                         'moc--screenshot-dir moc-focus-base-buffer)))
                  (expand-file-name
                   "screenshots/"
-                  (or (project-root (project-current))
+                  (or (when-let ((p (project-current))) (project-root p))
                       (temporary-file-directory))))))
+
+    ;; Use the current path if we happen to be in the YouTube directory
+
     ;; Creating directories can signal an error.  That's a good time to ask the
     ;; user for a fallback directory.
     (condition-case nil
@@ -894,8 +897,8 @@ Here's an example that employs a variety of techniques to calculate and persist 
                               "screenshot directory: ")))
                (setq dir fallback))))
 
-    ;; Persist this choice buffer locally@comma{} using whatever buffer MoC was invoked
-    ;; from if we're in an MoC buffer.
+    ;; Persist this choice buffer locally@comma{} using whatever buffer MC was invoked
+    ;; from if we're in an MC buffer.
     (when moc-focus-base-buffer (set-buffer moc-focus-base-buffer))
     (setq-local moc--screenshot-dir dir)))
 

@@ -821,8 +821,8 @@ from `overlay-properties'."
         moc--focus-cleaned-text nil))
 
 ;; 🚧 Presently this code does a good job on the first pass and replay.
-;; Displaying in other buffers or re-displaying the buffer in another window
-;; will likely leave something to be desired.
+;; However, displaying in other buffers or re-displaying the buffer in another
+;; window will likely leave something to be desired.
 (defun moc--display-fullscreen (&rest args)
   "Show TEXT with properties in a fullscreen window.
 See `mc-focus' for meaning of keys in ARGS."
