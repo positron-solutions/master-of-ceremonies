@@ -786,7 +786,7 @@ from `overlay-properties'."
     (let* ((offset (or offset 0))
            (beg (+ (pop o) offset))
            (end (+ (pop o) offset))
-           (ov (make-overlay beg end)))
+           (ov (make-overlay beg end nil t t)))
       (while-let ((prop (pop o)))
         (overlay-put ov prop (pop o)))
       (push ov moc--focus-overlays))))
