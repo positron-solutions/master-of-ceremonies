@@ -340,9 +340,6 @@ found active.
 
 🚧 The mode is experimental."
   :global t
-  :init-value (not (or noninteractive
-		       no-blinking-cursor
-		       (eq system-type 'ms-dos)))
   (cond
    (moc-subtle-cursor-mode
     (setq moc--blink-cursor-old blink-cursor-mode)
