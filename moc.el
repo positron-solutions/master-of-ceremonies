@@ -181,9 +181,6 @@ obscure text and their implementation is a bit simpler.")
   "List of obscured regions.")
 (defvar-local moc--focus-cleaned-text nil
   "Copy of cleaned input text for replay expressions.")
-;; TODO specified space is better
-(defvar-local moc--focus-margin-left nil)
-(defvar-local moc--focus-margin-right nil)
 (defvar-local moc--focus-old-subtle-cursor nil
   "Whether subtle cursor was active before running MC.")
 (defvar-local moc--focus-old-quiet nil
@@ -697,12 +694,11 @@ This just provides minor conveniences like pre-configured save path with
 
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
-  "Refresh margins in WINDOW if buffer is visible again.
-Window margins persist across buffer changes and could require updating when an
-MoC buffer becomes visible again."
+  "Refresh buffer in WINDOW if buffer is visible again."
   (if (eq (window-buffer window) (get-buffer "*MC Focus*"))
-      (set-window-margins
-       window moc--focus-margin-left moc--focus-margin-right)))
+      ;; TODO replace the old margin maintenence with dynamic centering for
+      ;; display in non-fullscreen buffers
+      (identity 1)))
 
 (defun moc--focus-clean-properties (text)
   "Reduce the properties for more succinct playback expressions.
@@ -863,14 +859,15 @@ See `mc-focus' for meaning of keys in ARGS."
       (let* ((h (window-pixel-height))
              (w (window-pixel-width))
              (text-size (window-text-pixel-size))
-             (margin-left (/ (- w (car text-size)) 2.0))
-             (margin-cols (1- (floor (/ margin-left (frame-char-width)))))
+             (margin-left (floor (/ (- w (car text-size)) 2.0)))
              (margin-top (/ (- h (cdr text-size)) 2.0))
              (margin-lines (/ margin-top (frame-char-height))))
-        (set-window-margins nil margin-cols margin-cols)
-        (setq moc--focus-margin-left margin-cols
-              moc--focus-margin-right margin-cols)
 
+        ;; TODO dynamically maintain this
+        (let ((o (make-overlay (point-min) (point-max))))
+          (overlay-put o 'line-prefix (propertize " " 'display `(space :align-to (,margin-left)))))
+
+        (set-window-margins (selected-window) nil nil)
         (add-hook 'window-state-change-functions #'moc--focus-refresh)
 
         (goto-char 0)
