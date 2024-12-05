@@ -50,6 +50,8 @@
 (require 'rect)
 (require 'transient)
 
+(eval-when-compile (require 'cl-lib))
+
 (defgroup moc nil "Master of ceremonies."
   :prefix 'mc
   :group 'outline)
@@ -1239,7 +1241,10 @@ interactive use case of highlighting a region is stable and very useful."
               ;; TODO trimming support
               (spans (list (cons beg (region-end))))
               (overlays (unless rectangle-mark-mode
-                          (overlays-in beg (region-end))))
+                          (cl-loop for o in (overlays-in beg (region-end))
+                                   when (not (eq (overlay-get o 'face)
+                                                 'region))
+                                   collect o)))
               (translated-overlays (mapcar (lambda (overlay)
                                              (moc--focus-serialize-overlay
                                               overlay spans))
