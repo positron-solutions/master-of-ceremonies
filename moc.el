@@ -1182,16 +1182,15 @@ interactive use case of highlighting a region is stable and very useful."
           :invisibility-spec buffer-invisibility-spec
           :highlights nil
           :obscures nil
-          :overlays (overlays-in (region-beginning)
-                                 (region-end))
+          :overlays (if rectangle-mark-mode nil (overlays-in beg (region-end)))
           ;; 🚧 String may be really unstable because it's less general than
           ;; the rectangle case.  Trimming and overlay translation depend on
           ;; knowing the buffer location corresponding to the beginning of
           ;; each line in the text we ultimately draw.
           :string (if rectangle-mark-mode
-                      (string-join (extract-rectangle (region-beginning)
-                                                      (region-end))
-                                   "\n")
+                      (string-join
+                       (extract-rectangle (region-beginning) (region-end))
+                       "\n")
                     (buffer-substring beg (region-end)))))
      (list :string (read-string "enter focus text: "))))
   (apply #'moc--display-fullscreen args))
