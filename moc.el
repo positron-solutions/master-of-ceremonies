@@ -171,6 +171,9 @@ This timer calls `moc-subtle-cursor-timer-function' every
   "Serialized specifications of overlays.
 Structure is a list of (BEG END . PROPS) where PROPS comes from
 `overlay-properties.'")
+(defvar-local moc--focus-invisibilty-spec nil
+  "The invisibility spec from the source.
+Same structure as valid values for `buffer-invisibility-spec'.")
 (defvar-local moc--focus-overlays nil
   "Overlays applied from `moc--focus-overlay-specs'.")
 (defvar-local moc--focus-scale-overlay nil
@@ -844,6 +847,7 @@ See `mc-focus' for meaning of keys in ARGS."
     (setq moc--focus-old-fringe-background (face-attribute 'fringe :background))
     (set-face-attribute 'fringe (selected-frame) :background 'unspecified)
     (setq buffer-invisibility-spec invisibility-spec)
+    (setq moc--focus-invisibilty-spec invisibility-spec)
     (setq moc--focus-old-quiet
           moc-quiet-mode)
     (setq moc--focus-old-subtle-cursor
@@ -925,6 +929,7 @@ See `mc-focus' for meaning of keys in ARGS."
   "." #'moc--focus-cursor-toggle
   "c" #'moc-face-remap-clear
   "e" #'moc-quiet-mode
+  "i" #'moc-focus-toggle-invisibility
   "h" #'moc-focus-dispatch
   "l" #'moc-focus-highlight
   "o" #'moc-focus-obscure
@@ -1193,6 +1198,17 @@ OBSCURES is a list of conses of BEG END to be obscured."
 
 (put 'moc-focus-toggle-overlays 'mode 'moc-focus-mode)
 
+(defun moc-focus-toggle-invisibility ()
+  (interactive)
+  (moc--focus-assert-mode)
+  (if buffer-invisibility-spec
+      (setq buffer-invisibility-spec nil)
+    (setq buffer-invisibility-spec
+          moc--focus-invisibilty-spec)))
+
+(put 'moc-focus-toggle-invisibility 'mode 'moc-focus-mode)
+
+
 (defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
   (interactive)
@@ -1200,7 +1216,7 @@ OBSCURES is a list of conses of BEG END to be obscured."
   (let ((expression
          `(moc-focus
            :overlays ',moc--focus-overlay-specs
-           :invisibility-spec ',buffer-invisibility-spec
+           :invisibility-spec ',moc--focus-invisibilty-spec
            :string ,moc--focus-cleaned-text
            :highlights ',moc--focus-highlights
            :obscures ',moc--focus-obscures)))
@@ -1306,6 +1322,14 @@ Used in suffix."
            (if moc--focus-overlays "on" "off")
            'face 'transient-value)))
 
+(defun moc--focus-dispatch-invisibility ()
+  "Describe state of invisibility.
+Used in suffix."
+  (format "invisibility %s"
+          (propertize
+           (if buffer-invisibility-spec "on" "off")
+           'face 'transient-value)))
+
 ;;;###autoload (autoload 'moc-focus-dispatch "master-of-ceremonies" nil t)
 (transient-define-prefix moc-focus-dispatch ()
   "Transient menu for MC Focus mode."
@@ -1322,7 +1346,10 @@ Used in suffix."
    ["Visibiliy"
     ("v" moc-focus-toggle-overlays
      :description moc--focus-dispatch-overlays
-     :inapt-if-nil moc--focus-overlay-specs)]
+     :inapt-if-nil moc--focus-overlay-specs)
+    ("i" moc-focus-toggle-invisibility
+     :description moc--focus-dispatch-invisibility
+     :inapt-if-nil moc--focus-invisibilty-spec)]
    ["Face Remapping"
     ("r" "remap" moc-face-remap)
     ("c" moc-face-remap-clear

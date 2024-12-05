@@ -13,6 +13,7 @@ In preparation for trimming, overlay support has been rearranged to perform tran
 ** Added
 - Serialize source overlays for playback
 - Clean source overlays to remove information that displays poorly in the focus buffer
+- Toggling of the invisibility spec and focus overlays
 ** Changed
 - =:beg= and =:end= are no longer keys for ~moc-focus~ playback
 ** Fixed
