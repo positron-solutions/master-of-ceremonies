@@ -631,7 +631,7 @@ Use in suffix command."
        (propertize "on " 'face 'success)
      (propertize "off" 'face 'shadow))))
 
-;;;###autoload (autoload 'moc-dispatch "master-of-ceremonies" nil t)
+;;;###autoload (autoload 'moc-dispatch "moc" nil t)
 (transient-define-prefix moc-dispatch ()
   "You are the MC.
 This is likely the command you want to bind globally to become familiar
@@ -1329,7 +1329,7 @@ Used in suffix."
            (if buffer-invisibility-spec "on" "off")
            'face 'transient-value)))
 
-;;;###autoload (autoload 'moc-focus-dispatch "master-of-ceremonies" nil t)
+;;;###autoload (autoload 'moc-focus-dispatch "moc" nil t)
 (transient-define-prefix moc-focus-dispatch ()
   "Transient menu for MC Focus mode."
   :transient-non-suffix t
