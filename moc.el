@@ -776,13 +776,14 @@ trimming.  SPANS is just ((BEG . END)) for now."
         (push (pop props) clean)))
     (nreverse clean)))
 
-(defun moc--focus-apply-overlays (overlay-specs)
+(defun moc--focus-apply-overlays (overlay-specs &optional offset)
   "Apply OVERLAY-SPECS to the buffer.
 OVERLAY-SPECS is a list of (BEG END . PROPS) where PROPS is obtained
 from `overlay-properties'."
   (while-let ((o (pop overlay-specs)))
-    (let* ((beg (pop o))
-           (end (pop o))
+    (let* ((offset (or offset 0))
+           (beg (+ (pop o) offset))
+           (end (+ (pop o) offset))
            (ov (make-overlay beg end)))
       (while-let ((prop (pop o)))
         (overlay-put ov prop (pop o)))
@@ -929,6 +930,7 @@ See `mc-focus' for meaning of keys in ARGS."
   "r" #'moc-face-remap
   "s" #'moc-screenshot
   "u" #'moc-focus-un-highlight
+  "v" #'moc-focus-toggle-overlays
   "U" #'moc-focus-highlight-clear
   "w" #'moc-focus-kill-ring-save)
 
@@ -1174,6 +1176,21 @@ OBSCURES is a list of conses of BEG END to be obscured."
         (overlay-put ov 'priority 1000) ; arbitrary
         (push ov moc--focus-obscuring-overlays)))))
 
+(defun moc-focus-toggle-overlays ()
+  (interactive)
+  (moc--focus-assert-mode)
+  (if moc--focus-overlays
+      (progn (mapc #'delete-overlay
+                   moc--focus-overlays)
+             (setq moc--focus-overlays nil))
+    (moc--focus-apply-overlays
+     ;; whenever toggling overlays, a space exists at the 1 position, so we need
+     ;; to offset all overlays.  When there becomes a way to add space above a
+     ;; line without stretching the background for that line, let me know 😉!
+     moc--focus-overlay-specs 1)))
+
+(put 'moc-focus-toggle-overlays 'mode 'moc-focus-mode)
+
 (defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
   (interactive)
@@ -1276,6 +1293,14 @@ instead."
 
 (put 'moc--focus-cursor-toggle 'mode 'moc-focus-mode)
 
+(defun moc--focus-dispatch-overlays ()
+  "Describe state of overlays.
+Used in suffix."
+  (format "overlays %s"
+          (propertize
+           (if moc--focus-overlays "on" "off")
+           'face 'transient-value)))
+
 ;;;###autoload (autoload 'moc-focus-dispatch "master-of-ceremonies" nil t)
 (transient-define-prefix moc-focus-dispatch ()
   "Transient menu for MC Focus mode."
@@ -1289,6 +1314,10 @@ instead."
     ("U" moc-focus-highlight-clear
      :inapt-if-not moc--focus-can-clear-p
      :description moc--focus-dispatch-clears)]
+   ["Visibiliy"
+    ("v" moc-focus-toggle-overlays
+     :description moc--focus-dispatch-overlays
+     :inapt-if-nil moc--focus-overlay-specs)]
    ["Face Remapping"
     ("r" "remap" moc-face-remap)
     ("c" moc-face-remap-clear
