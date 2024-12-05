@@ -171,6 +171,8 @@ Structure is a list of (BEG END . PROPS) where PROPS comes from
 `overlay-properties.'")
 (defvar-local moc--focus-overlays nil
   "Overlays applied from `moc--focus-overlay-specs'.")
+(defvar-local moc--focus-scale-overlay nil
+  "Overlay responsible for scaling content.")
 (defvar-local moc--focus-highlight-overlays nil
   "Overlays used to highlight focused text.
 Each region is a cons of BEG END.  In actuality these overlays are a
@@ -697,8 +699,8 @@ This just provides minor conveniences like pre-configured save path with
 ;; * Focus fullscreen text
 
 ;; 🚧 This feature has mostly been implemented out of a collection of proofs of
-;; concept.  Do not trust or respect this code.  Most of it will need to be
-;; rewritten while adding new features.
+;; concept.  It's getting better.  It is still experimental and may have edge
+;; cases that are un-fixable and require re-architecture.
 
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
@@ -813,9 +815,9 @@ from `overlay-properties'."
   (setq moc--focus-old-window-config nil
         moc--focus-cleaned-text nil))
 
-;; ⚠️ This code is very much a collection of proofs of concept.  Very little of
-;; it will likely be stable or is of high quality.  You may want to reduce to
-;; just your use case before attempting to implement a new feature.
+;; 🚧 Presently this code does a good job on the first pass and replay.
+;; Displaying in other buffers or re-displaying the buffer in another window
+;; will likely leave something to be desired.
 (defun moc--display-fullscreen (&rest args)
   "Show TEXT with properties in a fullscreen window.
 See `mc-focus' for meaning of keys in ARGS."
@@ -845,19 +847,29 @@ See `mc-focus' for meaning of keys in ARGS."
           moc-subtle-cursor-mode)
     (moc-hide-cursor-mode 1)
     (moc-quiet-mode 1)
+    ;; TODO minibuffer messages are not cleared immediately when replaying with
+    ;; interactive evaluation.  The result of this function is displayed.  Yuck.
     (read-only-mode -1)
 
     ;; Before we start adding properties, save the input text without additional
     ;; properties.
     (setq-local moc--focus-cleaned-text text)
+    (insert (propertize text 'line-prefix nil 'wrap-prefix nil))
     (setq-local moc--focus-overlay-specs overlay-specs)
     (when overlay-specs
       (moc--focus-apply-overlays overlay-specs))
 
-    (insert (propertize text
-                        'line-prefix nil
-                        'wrap-prefix nil))
+    (mapc (lambda (remap) (moc-face-remap remap t))
+          moc-focus-default-remaps)
 
+    (setq moc--focus-highlights highlights)
+    ;; TODO distinguish fully shadowed versus no highlights
+    (when highlights
+      (moc--focus-apply-highlights highlights))
+
+    (setq moc--focus-obscures obscures)
+    (when obscures
+      (moc--focus-apply-obscures obscures))
 
     (let* ((w (window-pixel-width))
            (h (window-pixel-height))
@@ -879,35 +891,26 @@ See `mc-focus' for meaning of keys in ARGS."
                        moc-focus-max-scale))
            (scale-overlay (make-overlay 1 (point-max))))
       (overlay-put scale-overlay 'face `(:height ,scale))
+      (overlay-put scale-overlay 'priority 9999)
+      (setq moc--focus-scale-overlay scale-overlay)
 
-      (mapc (lambda (remap) (moc-face-remap remap t))
-            moc-focus-default-remaps)
-
-      (setq moc--focus-highlights highlights)
-      ;; TODO distinguish fully shadowed versus no highlights
-      (when highlights
-        (moc--focus-apply-highlights highlights))
-
-      (setq moc--focus-obscures obscures)
-      (when obscures
-        (moc--focus-apply-obscures obscures))
-
-      ;; Now that the text is its final size, adjust the margins and vertical
-      ;; spacing
-      (let* ((h (window-pixel-height))
-             (w (window-pixel-width))
-             (text-size (window-text-pixel-size))
+      ;; Now that the text is its final size, adjust the vertical and horizontal
+      ;; alignment.
+      (let* ((text-size (window-text-pixel-size))
              (margin-left (floor (/ (- w (car text-size)) 2.0)))
              (margin-top (/ (- h (cdr text-size)) 2.0))
              (margin-lines (/ margin-top (frame-char-height))))
 
-        ;; TODO dynamically maintain this
-        (let ((o (make-overlay (point-min) (point-max))))
-          (overlay-put o 'line-prefix (propertize " " 'display `(space :align-to (,margin-left)))))
         (set-window-fringes (selected-window) 0 0)
         (set-window-margins (selected-window) nil nil)
         (add-hook 'window-state-change-functions #'moc--focus-refresh nil t)
 
+        ;; TODO dynamically maintain specified space
+        (let ((o (make-overlay (point-min) (point-max))))
+          (overlay-put o 'line-prefix
+                       (propertize " " 'display
+                                   `(space :align-to (,margin-left))))
+          (overlay-put o 'priority 9999))
         (goto-char 0)
         (insert (propertize "\n" 'face `(:height ,margin-lines)))
         (setf (overlay-start scale-overlay) 2)
@@ -1185,7 +1188,7 @@ OBSCURES is a list of conses of BEG END to be obscured."
     (kill-new (prin1-to-string expression)))
   (message "saved focus to kill ring."))
 
-(put 'moc-focus-kill-ring-save  'mode 'moc-focus-mode)
+(put 'moc-focus-kill-ring-save 'mode 'moc-focus-mode)
 
 ;;;###autoload
 (defun moc-focus (&rest args)

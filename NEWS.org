@@ -17,6 +17,8 @@ In preparation for trimming, overlay support has been rearranged to perform tran
 - =:beg= and =:end= are no longer keys for ~moc-focus~ playback
 ** Fixed
 - Multi-line regions selected with leading whitespace will have the whitespace included.  (Later trimming support will remove leading whitespace that is extraneous)
+- Improper minor mode state initialization and tracking would turn ~moc-subtle-cursor-mode~ on after ~moc-focus~ buffer was dismissed
+- Set window fringes and margins to zero to avoid visual "bars" in some themes
 * v0.4.0 Packaging 🍱
 This release series will make +mc+ ~moc~ ready for publishing on package archives.
 
