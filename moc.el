@@ -710,12 +710,11 @@ This just provides minor conveniences like pre-configured save path with
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
   "Refresh buffer in WINDOW if buffer is visible again."
-  (when (window-live-p window)
-        (when (eq (window-buffer window) (get-buffer "*MC Focus*"))
-          (set-window-fringes 0 0)
-          (set-face-attribute 'fringe (window-frame window)
-                              :background 'unspecified)
-          (set-window-margins window nil))))
+  (when (eq (window-buffer window) (get-buffer "*MC Focus*"))
+    (set-window-fringes window 0 0)
+    (set-face-attribute 'fringe (window-frame window)
+                        :background 'unspecified)
+    (set-window-margins window nil)))
 
 (defun moc--focus-clean-properties (text)
   "Reduce the properties for more succinct playback expressions.

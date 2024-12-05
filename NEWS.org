@@ -16,6 +16,8 @@ In preparation for trimming, overlay support has been rearranged to perform tran
 - Toggling of the invisibility spec and focus overlays
 ** Changed
 - =:beg= and =:end= are no longer keys for ~moc-focus~ playback
+- Centering is now accomplished with specified space
+  + But nobody has any idea how to do specified space above a line without the background extending to cover the created space.
 ** Fixed
 - Multi-line regions selected with leading whitespace will have the whitespace included.  (Later trimming support will remove leading whitespace that is extraneous)
 - Improper minor mode state initialization and tracking would turn ~moc-subtle-cursor-mode~ on after ~moc-focus~ buffer was dismissed
