@@ -4,7 +4,7 @@
 
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
-;; Version: 0.4.0
+;; Version: 0.5.0
 ;; Package-Requires: ((emacs "29.4"))
 ;; Homepage: http://github.com/positron-solutions/moc
 
