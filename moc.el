@@ -1167,24 +1167,32 @@ ARGS contains the following keys:
 interactive use case of highlighting a region is stable and very useful."
   (interactive
    (if (region-active-p)
-       (list
-        :beg (region-beginning)
-        :end (region-end)
-        :invisibility-spec buffer-invisibility-spec
-        :highlights nil
-        :obscures nil
-        :overlays (overlays-in (region-beginning)
-                               (region-end))
-        ;; 🚧 String may be really unstable because it's less general than
-        ;; the rectangle case.  Trimming and overlay translation depend on
-        ;; knowing the buffer location corresponding to the beginning of
-        ;; each line in the text we ultimately draw.
-        :string (if rectangle-mark-mode
-                    (string-join (extract-rectangle (region-beginning)
-                                                    (region-end))
-                                 "\n")
-                  (buffer-substring (region-beginning)
-                                    (region-end))))
+       (let* ((region-bol (save-excursion
+                            (goto-char (region-beginning))
+                            (if (bolp) (point) (line-beginning-position))))
+              (whitespace (string-match-p
+                           "\s-+" (buffer-substring region-bol (point))))
+              (beg (if rectangle-mark-mode
+                       (region-beginning)
+                     (if whitespace region-bol
+                       (region-beginning)))))
+         (list
+          :beg beg
+          :end (region-end)
+          :invisibility-spec buffer-invisibility-spec
+          :highlights nil
+          :obscures nil
+          :overlays (overlays-in (region-beginning)
+                                 (region-end))
+          ;; 🚧 String may be really unstable because it's less general than
+          ;; the rectangle case.  Trimming and overlay translation depend on
+          ;; knowing the buffer location corresponding to the beginning of
+          ;; each line in the text we ultimately draw.
+          :string (if rectangle-mark-mode
+                      (string-join (extract-rectangle (region-beginning)
+                                                      (region-end))
+                                   "\n")
+                    (buffer-substring beg (region-end)))))
      (list :string (read-string "enter focus text: "))))
   (apply #'moc--display-fullscreen args))
 
