@@ -5,7 +5,7 @@
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
 ;; Version: 0.5.0
-;; Package-Requires: ((emacs "29.4"))
+;; Package-Requires: ((emacs "29.4") (hide-mode-line "1.0.3"))
 ;; Homepage: http://github.com/positron-solutions/moc
 
 ;;; License:
@@ -49,6 +49,7 @@
 (require 'face-remap)
 (require 'rect)
 (require 'transient)
+(require 'hide-mode-line)
 
 (eval-when-compile (require 'cl-lib))
 
