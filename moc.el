@@ -688,11 +688,7 @@ This just provides minor conveniences like pre-configured save path with
       (insert data))
     (message "Saved to: %s" filename)))
 
-;; * Focus fullscreen text
-
-;; 🚧 This feature has mostly been implemented out of a collection of proofs of
-;; concept.  It's getting better.  It is still experimental and may have edge
-;; cases that are un-fixable and require re-architecture.
+;; * Focus Fullscreen Text
 
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
@@ -702,70 +698,6 @@ This just provides minor conveniences like pre-configured save path with
     (set-face-attribute 'fringe (window-frame window)
                         :background 'unspecified)
     (set-window-margins window nil)))
-
-(defun moc--focus-clean-properties (text)
-  "Reduce the properties for more succinct playback expressions.
-When using `moc-focus-kill-ring-save', we have to save every single text
-property.  Appropriate behavior for this function is to return TEXT only
-with properties that will affect display.  It would be appropriate to
-omit any faces that don't have a visible effect on the result.  It may
-be better to configure away certain faces that are being effectively
-removed by `moc-face-remap'.
-
-Because we don't know the context of the text that is being focused, we
-can't use temporary buffers and font locking to restore properties; the
-text we have is likely incomplete out of context."
-  (let ((dirty-props (object-intervals text))
-        (clean-string (substring-no-properties text)))
-    (mapc
-     (lambda (interval)
-       (let ((begin (pop interval))
-             (end (pop interval)))
-         (mapc
-          (lambda (prop-name)
-            (when-let ((prop (plist-get (car interval) prop-name)))
-              (put-text-property begin end prop-name prop clean-string)))
-          '(face font-lock-face button invisible display))))
-     dirty-props)
-    clean-string))
-
-(defun moc--focus-serialize-overlay (overlay spans)
-  "Serialize OVERLAY properties for playback etc.
-The overlay's start and end are translated using BEG and SPANS to ensure
-that the resulting overlay information will result in an overlay that
-accurately applies to the same text in the focus buffer that OVERLAY
-applies to in the source buffer.
-
-The return value is (BEG END . PROPS) where PROPS is the list returned
-from `overlay-properties'.
-
-🚧 This first pass only does basic translation without consideration for
-trimming.  SPANS is just ((BEG . END)) for now."
-  (let ((props (overlay-properties overlay))
-        (beg (caar spans))
-        clean)
-    ;; TODO translates sizes beyond SPANS
-
-    ;; An overlay beginning right on beg will start at buffer position 1, so we
-    ;; have to add 1 (by subtracting -1)
-    (push (max 1 (- (overlay-start overlay) beg -1)) clean)
-    (push (max 1 (- (overlay-end overlay) beg -1)) clean)
-    (while-let ((prop (pop props)))
-      ;; TODO make "nice" properties configurable and test out line-prefix to be
-      ;; sure it plays nice with our centering.
-      (when (member prop '(button
-                           display
-                           face
-                           height
-                           invisible
-                           line-height
-                           line-prefix
-                           line-spacing
-                           priority
-                           wrap-prefix))
-        (push prop clean)
-        (push (pop props) clean)))
-    (nreverse clean)))
 
 (defun moc--focus-apply-overlays (overlay-specs &optional offset)
   "Apply OVERLAY-SPECS to the buffer.
@@ -909,104 +841,6 @@ See `mc-focus' for meaning of keys in ARGS."
         (setf (overlay-start scale-overlay) 2)
         (setf (overlay-end scale-overlay) (point-max))))
     (read-only-mode 1)))
-
-(defvar-keymap moc-focus-mode-map
-  :suppress 'nodigits
-  "." #'moc--focus-cursor-toggle
-  "c" #'moc-face-remap-clear
-  "e" #'moc-quiet-mode
-  "i" #'moc-focus-toggle-invisibility
-  "h" #'moc-focus-dispatch
-  "l" #'moc-focus-highlight
-  "o" #'moc-focus-obscure
-  "q" #'moc-focus-quit
-  "r" #'moc-face-remap
-  "s" #'moc-screenshot
-  "u" #'moc-focus-un-highlight
-  "v" #'moc-focus-toggle-overlays
-  "U" #'moc-focus-highlight-clear
-  "w" #'moc-focus-kill-ring-save)
-
-(define-derived-mode moc-focus-mode special-mode
-  "Modal controls for focus windows."
-  :interactive nil)
-
-(defsubst moc--focus-assert-mode ()
-  "Raise user error if commands are called in wrong mode."
-  (if-let ((buffer (get-buffer "*MC Focus*")))
-      (set-buffer buffer)
-    (user-error "No MC buffer found")))
-
-(defun moc-focus-highlight-clear ()
-  "Delete all highlights and obscures."
-  (interactive)
-  (moc--focus-assert-mode)
-  (unless (or moc--focus-highlights
-              moc--focus-obscures)
-    (user-error "No highlights or obscures to remove"))
-  (setq moc--focus-highlights nil)
-  (mapc #'delete-overlay moc--focus-highlight-overlays)
-  (setq moc--focus-highlight-overlays nil)
-  (setq moc--focus-obscures nil)
-  (mapc #'delete-overlay moc--focus-obscuring-overlays)
-  (setq moc--focus-obscuring-overlays nil))
-
-(put 'moc-focus-highlight-clear 'mode 'moc-focus-mode)
-
-(defun moc-focus-quit ()
-  "Fullscreen quit command."
-  (interactive)
-  (if-let ((buffer (get-buffer "*MC Focus*")))
-      (kill-buffer buffer)
-    (user-error "No MC buffer found")))
-
-(put 'moc-focus-quit 'mode 'moc-focus-mode)
-
-(defun moc-focus-highlight (beg end)
-  "Highlight region between BEG and END.
-The shadow face will be applied to remaining unhighlighted regions."
-  (interactive "r")
-  (moc--focus-assert-mode)
-  (moc--focus-highlight beg end)
-  (moc--focus-un-obscure beg end)
-  ;; unnecessary to deactivate the mark when called any other way
-  (when (called-interactively-p 't)
-    (deactivate-mark))
-  (moc--focus-apply-highlights moc--focus-highlights)
-  (moc--focus-apply-obscures moc--focus-obscures))
-
-(put 'moc-focus-highlight 'mode 'moc-focus-mode)
-
-(defun moc-focus-obscure (beg end)
-  "Obscure region between BEG and END.
-This overrides any highlights or shadows.  Use un-highlight or highlight
-to make obscurred regions visible again."
-  (interactive "r")
-  (moc--focus-assert-mode)
-  (moc--focus-obscure beg end)
-  ;; unnecessary to deactivate the mark when called any other way
-  (when (called-interactively-p 't)
-    (deactivate-mark))
-  (moc--focus-apply-obscures moc--focus-obscures))
-
-(put 'moc-focus-obscure 'mode 'moc-focus-mode)
-
-(defun moc-focus-un-highlight (beg end)
-  "Remove highlight in region between BEG and END.
-The shadow face will be added to the region between BEG and END."
-  (interactive "r")
-  (moc--focus-assert-mode)
-  (unless moc--focus-highlights
-    (user-error "No highlights to un-highlight"))
-  (moc--focus-un-highlight beg end)
-  (moc--focus-un-obscure beg end)
-  ;; unnecessary to deactivate the mark when called any other way
-  (when (called-interactively-p 't)
-    (deactivate-mark))
-  (moc--focus-apply-highlights moc--focus-highlights)
-  (moc--focus-apply-obscures moc--focus-obscures))
-
-(put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
 
 (defun moc--focus-apply-highlights (highlights)
   "Replay HIGHLIGHTS from Elisp programs.
@@ -1169,6 +1003,86 @@ OBSCURES is a list of conses of BEG END to be obscured."
         (overlay-put ov 'priority 1000) ; arbitrary
         (push ov moc--focus-obscuring-overlays)))))
 
+;; ** Focus UI Commands
+
+(defsubst moc--focus-assert-mode ()
+  "Raise user error if commands are called in wrong mode."
+  (if-let ((buffer (get-buffer "*MC Focus*")))
+      (set-buffer buffer)
+    (user-error "No MC buffer found")))
+
+(defun moc-focus-highlight-clear ()
+  "Delete all highlights and obscures."
+  (interactive)
+  (moc--focus-assert-mode)
+  (unless (or moc--focus-highlights
+              moc--focus-obscures)
+    (user-error "No highlights or obscures to remove"))
+  (setq moc--focus-highlights nil)
+  (mapc #'delete-overlay moc--focus-highlight-overlays)
+  (setq moc--focus-highlight-overlays nil)
+  (setq moc--focus-obscures nil)
+  (mapc #'delete-overlay moc--focus-obscuring-overlays)
+  (setq moc--focus-obscuring-overlays nil))
+
+(put 'moc-focus-highlight-clear 'mode 'moc-focus-mode)
+
+(defun moc-focus-quit ()
+  "Fullscreen quit command."
+  (interactive)
+  (if-let ((buffer (get-buffer "*MC Focus*")))
+      (kill-buffer buffer)
+    (user-error "No MC buffer found")))
+
+(put 'moc-focus-quit 'mode 'moc-focus-mode)
+
+(defun moc-focus-highlight (beg end)
+  "Highlight region between BEG and END.
+The shadow face will be applied to remaining unhighlighted regions."
+  (interactive "r")
+  (moc--focus-assert-mode)
+  (moc--focus-highlight beg end)
+  (moc--focus-un-obscure beg end)
+  ;; unnecessary to deactivate the mark when called any other way
+  (when (called-interactively-p 't)
+    (deactivate-mark))
+  (moc--focus-apply-highlights moc--focus-highlights)
+  (moc--focus-apply-obscures moc--focus-obscures))
+
+(put 'moc-focus-highlight 'mode 'moc-focus-mode)
+
+(defun moc-focus-obscure (beg end)
+  "Obscure region between BEG and END.
+This overrides any highlights or shadows.  Use un-highlight or highlight
+to make obscurred regions visible again."
+  (interactive "r")
+  (moc--focus-assert-mode)
+  (moc--focus-obscure beg end)
+  ;; unnecessary to deactivate the mark when called any other way
+  (when (called-interactively-p 't)
+    (deactivate-mark))
+  (moc--focus-apply-obscures moc--focus-obscures))
+
+(put 'moc-focus-obscure 'mode 'moc-focus-mode)
+
+(defun moc-focus-un-highlight (beg end)
+  "Remove highlight in region between BEG and END.
+The shadow face will be added to the region between BEG and END."
+  (interactive "r")
+  (moc--focus-assert-mode)
+  (unless moc--focus-highlights
+    (user-error "No highlights to un-highlight"))
+  (moc--focus-un-highlight beg end)
+  (moc--focus-un-obscure beg end)
+  ;; unnecessary to deactivate the mark when called any other way
+  (when (called-interactively-p 't)
+    (deactivate-mark))
+  (moc--focus-apply-highlights moc--focus-highlights)
+  (moc--focus-apply-obscures moc--focus-obscures))
+
+(put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
+
+
 (defun moc-focus-toggle-overlays ()
   (interactive)
   (moc--focus-assert-mode)
@@ -1210,6 +1124,72 @@ OBSCURES is a list of conses of BEG END to be obscured."
   (message "saved focus to kill ring."))
 
 (put 'moc-focus-kill-ring-save 'mode 'moc-focus-mode)
+
+;; ** Focus Extraction & Pre-Processing
+
+(defun moc--focus-clean-properties (text)
+  "Reduce the properties for more succinct playback expressions.
+When using `moc-focus-kill-ring-save', we have to save every single text
+property.  Appropriate behavior for this function is to return TEXT only
+with properties that will affect display.  It would be appropriate to
+omit any faces that don't have a visible effect on the result.  It may
+be better to configure away certain faces that are being effectively
+removed by `moc-face-remap'.
+
+Because we don't know the context of the text that is being focused, we
+can't use temporary buffers and font locking to restore properties; the
+text we have is likely incomplete out of context."
+  (let ((dirty-props (object-intervals text))
+        (clean-string (substring-no-properties text)))
+    (mapc
+     (lambda (interval)
+       (let ((begin (pop interval))
+             (end (pop interval)))
+         (mapc
+          (lambda (prop-name)
+            (when-let ((prop (plist-get (car interval) prop-name)))
+              (put-text-property begin end prop-name prop clean-string)))
+          '(face font-lock-face button invisible display))))
+     dirty-props)
+    clean-string))
+
+(defun moc--focus-serialize-overlay (overlay spans)
+  "Serialize OVERLAY properties for playback etc.
+The overlay's start and end are translated using BEG and SPANS to ensure
+that the resulting overlay information will result in an overlay that
+accurately applies to the same text in the focus buffer that OVERLAY
+applies to in the source buffer.
+
+The return value is (BEG END . PROPS) where PROPS is the list returned
+from `overlay-properties'.
+
+🚧 This first pass only does basic translation without consideration for
+trimming.  SPANS is just ((BEG . END)) for now."
+  (let ((props (overlay-properties overlay))
+        (beg (caar spans))
+        clean)
+    ;; TODO translates sizes beyond SPANS
+
+    ;; An overlay beginning right on beg will start at buffer position 1, so we
+    ;; have to add 1 (by subtracting -1)
+    (push (max 1 (- (overlay-start overlay) beg -1)) clean)
+    (push (max 1 (- (overlay-end overlay) beg -1)) clean)
+    (while-let ((prop (pop props)))
+      ;; TODO make "nice" properties configurable and test out line-prefix to be
+      ;; sure it plays nice with our centering.
+      (when (member prop '(button
+                           display
+                           face
+                           height
+                           invisible
+                           line-height
+                           line-prefix
+                           line-spacing
+                           priority
+                           wrap-prefix))
+        (push prop clean)
+        (push (pop props) clean)))
+    (nreverse clean)))
 
 ;;;###autoload
 (defun moc-focus (&rest args)
@@ -1263,6 +1243,8 @@ interactive use case of highlighting a region is stable and very useful."
                     (buffer-substring beg (region-end)))))
      (list :string (read-string "enter focus text: "))))
   (apply #'moc--display-fullscreen args))
+
+;; ** Focus UI
 
 (defun moc--focus-dispatch-screenshot-dir ()
   "Return current screenshot dir for use in info class."
@@ -1354,6 +1336,27 @@ Used in suffix."
    ("q" "quit" moc-focus-quit)])
 
 (put 'moc-focus-dispatch 'mode 'moc-focus-mode)
+
+(defvar-keymap moc-focus-mode-map
+  :suppress 'nodigits
+  "." #'moc--focus-cursor-toggle
+  "c" #'moc-face-remap-clear
+  "e" #'moc-quiet-mode
+  "i" #'moc-focus-toggle-invisibility
+  "h" #'moc-focus-dispatch
+  "l" #'moc-focus-highlight
+  "o" #'moc-focus-obscure
+  "q" #'moc-focus-quit
+  "r" #'moc-face-remap
+  "s" #'moc-screenshot
+  "u" #'moc-focus-un-highlight
+  "v" #'moc-focus-toggle-overlays
+  "U" #'moc-focus-highlight-clear
+  "w" #'moc-focus-kill-ring-save)
+
+(define-derived-mode moc-focus-mode special-mode
+  "Modal controls for focus windows."
+  :interactive nil)
 
 (provide 'moc)
 ;;; moc.el ends here
