@@ -44,7 +44,6 @@
 ;; unfortunate naming collision.  We will attempt to bring glory to your name.
 
 ;;; Code:
-(require 'default-text-scale)
 (require 'frame)
 (require 'face-remap)
 (require 'rect)
@@ -610,13 +609,6 @@ Use in suffix command."
          (propertize (format "remaps %-4d" remaps) 'face 'success)
        ""))))
 
-(defun moc--dispatch-default-text-scale ()
-  "Return current default text scale for info class."
-  (if default-text-scale-mode
-      (propertize (format "scale: %s" (face-attribute 'default :height))
-                  'face 'transient-value)
-    (propertize "off" 'face 'shadow)))
-
 (defun moc--dispatch-text-scale ()
   "Return current text scale for info class."
   (if text-scale-mode
@@ -638,13 +630,7 @@ Use in suffix command."
 This is likely the command you want to bind globally to become familiar
 with MC commands and to make many adjustments at once."
   :refresh-suffixes t
-  [["Default Text Scale"
-    (:info #'moc--dispatch-default-text-scale)
-    ("+" "increase" default-text-scale-increase :transient t)
-    ("-" "decrease" default-text-scale-decrease :transient t)
-    ("=" "reset" default-text-scale-reset :transient transient--do-call
-     :inapt-if-nil default-text-scale-mode)]
-   ["Buffer Text Scale"
+  [["Buffer Text Scale"
     (:info #'moc--dispatch-text-scale)
     ("t+" "increase" text-scale-increase :transient t)
     ("t-" "decrease" text-scale-decrease :transient t)
