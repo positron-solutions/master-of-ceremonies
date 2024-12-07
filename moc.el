@@ -1241,7 +1241,7 @@ interactive use case of highlighting a region is stable and very useful."
                        (extract-rectangle (region-beginning) (region-end))
                        "\n")
                     (buffer-substring beg (region-end)))))
-     (list :string (read-string "enter focus text: "))))
+     (user-error "No region selected")))
   (apply #'moc--display-fullscreen args))
 
 ;; ** Focus UI
