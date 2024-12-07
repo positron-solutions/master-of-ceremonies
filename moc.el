@@ -216,7 +216,7 @@ base buffer to be relied upon for implementing things.")
 (defun moc--read-remap (&optional preset)
   "Prompt for a preset.
 PRESET is passed from elisp programs to load pre-deteremined presets."
-  (when-let ((key (or preset
+  (when-let* ((key (or preset
                       (completing-read
                        "Choose a remap preset: "
                        moc-face-remap-presets))))
@@ -432,7 +432,7 @@ Allow state cleanup if no more frames are under management."
       ;; have acquired a fullscreen parameter.
       (progn (message "Frame: %s has become fullscreen.  Releasing." frame)
              (moc--fixed-frame-release frame))
-    (when-let ((size (frame-parameter frame 'moc--fixed-frame-goal)))
+    (when-let* ((size (frame-parameter frame 'moc--fixed-frame-goal)))
       (moc--fixed-frame-verify frame size))))
 
 (defun moc--fixed-frame-verify (frame size)
@@ -490,7 +490,7 @@ set, check and set."
         ;; have acquired a fullscreen parameter.
         (progn (message "Frame: %s has become fullscreen.  Releasing." frame)
                (moc--fixed-frame-release frame))
-      (when-let ((size (frame-parameter frame 'moc--fixed-frame-goal)))
+      (when-let* ((size (frame-parameter frame 'moc--fixed-frame-goal)))
         (moc--fixed-frame-correct frame size)))))
 
 (defun moc--fixed-frame-set (frame size)
@@ -543,7 +543,7 @@ these behaviors may become more consistent."
                 (cdr (assq frame-size moc-fixed-frame-sizes)))
                ((consp frame-size) frame-size)
                (t (error "Unrecognized size: %s" frame-size))))
-         (current (if-let ((fullscreen (frame-parameter nil 'fullscreen)))
+         (current (if-let* ((fullscreen (frame-parameter nil 'fullscreen)))
                       fullscreen
                     (cons (frame-pixel-width)
                           (frame-pixel-height)))))
@@ -566,7 +566,7 @@ these behaviors may become more consistent."
   (format
    "current: %s"
    (propertize
-    (if-let ((full (frame-parameter nil 'fullscreen)))
+    (if-let* ((full (frame-parameter nil 'fullscreen)))
         (symbol-name full)
       (format "%s %s" (frame-pixel-width) (frame-pixel-height)))
     'face 'transient-value)))
@@ -587,7 +587,7 @@ Used in suffix command."
 
 (defun moc--dispatch-cursor-mode ()
   "Return cursor state for use in info class."
-  (if-let ((cursor (if (consp cursor-type)
+  (if-let* ((cursor (if (consp cursor-type)
                        (car cursor-type)
                      (if (eq cursor-type t)
                          (frame-parameter nil 'cursor-type)
@@ -745,7 +745,7 @@ from `overlay-properties'."
 (defun moc--display-fullscreen (&rest args)
   "Show TEXT with properties in a fullscreen window.
 See `mc-focus' for meaning of keys in ARGS."
-  (when-let ((old (get-buffer "*MC Focus*")))
+  (when-let* ((old (get-buffer "*MC Focus*")))
     (kill-buffer old))
   (setq moc--focus-old-window-config (current-window-configuration))
   (let* ((base (current-buffer))
@@ -1007,7 +1007,7 @@ OBSCURES is a list of conses of BEG END to be obscured."
 
 (defsubst moc--focus-assert-mode ()
   "Raise user error if commands are called in wrong mode."
-  (if-let ((buffer (get-buffer "*MC Focus*")))
+  (if-let* ((buffer (get-buffer "*MC Focus*")))
       (set-buffer buffer)
     (user-error "No MC buffer found")))
 
@@ -1030,7 +1030,7 @@ OBSCURES is a list of conses of BEG END to be obscured."
 (defun moc-focus-quit ()
   "Fullscreen quit command."
   (interactive)
-  (if-let ((buffer (get-buffer "*MC Focus*")))
+  (if-let* ((buffer (get-buffer "*MC Focus*")))
       (kill-buffer buffer)
     (user-error "No MC buffer found")))
 
@@ -1147,7 +1147,7 @@ text we have is likely incomplete out of context."
              (end (pop interval)))
          (mapc
           (lambda (prop-name)
-            (when-let ((prop (plist-get (car interval) prop-name)))
+            (when-let* ((prop (plist-get (car interval) prop-name)))
               (put-text-property begin end prop-name prop clean-string)))
           '(face font-lock-face button invisible display))))
      dirty-props)
