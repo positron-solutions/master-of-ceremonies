@@ -897,8 +897,8 @@ Here's an example that employs a variety of techniques to calculate and persist 
                               "screenshot directory: ")))
                (setq dir fallback))))
 
-    ;; Persist this choice buffer locally@comma{} using whatever buffer MC was invoked
-    ;; from if we're in an MC buffer.
+    ;; Persist this choice buffer locally@comma{} using whatever buffer MoC was invoked
+    ;; from if we're in an MoC buffer.
     (when moc-focus-base-buffer (set-buffer moc-focus-base-buffer))
     (setq-local moc--screenshot-dir dir)))
 

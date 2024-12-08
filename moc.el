@@ -104,6 +104,10 @@ apply or clear remaps using `moc-face-remap' and `moc-face-remap-clear'.
 The defaults will just be turned on to save time in the usual cases."
   :type '(repeat symbol))
 
+;; TODO buffer name cannot be varied unless certain hooks are aware of which
+;; buffers are focus buffers.  Either scan, track, or don't bother.  Multiple
+;; focus buffers are impossible without names.
+
 (defcustom moc-screenshot-dir #'temporary-file-directory
   "Directory path or function that returns a directory path.
 Directory path is a string."
@@ -197,18 +201,16 @@ occlude text and their implementation is a bit simpler.")
 (defvar-local moc--focus-old-fringe-background nil
   "For restoring the fringe background.")
 (defvar-local moc--focus-old-subtle-cursor nil
-  "Whether subtle cursor was active before running MC.")
+  "Whether subtle cursor was active before focusing.")
 (defvar-local moc--focus-old-quiet nil
-  "Whehter quiet mode was active before running MC.")
+  "Whether quiet mode was active before focusing.")
 (defvar-local moc--focus-old-window-config nil)
 
 (defvar-local moc-focus-base-buffer nil
-  "Stores a reference to the buffer MC was called from.
+  "Stores a reference to the focus buffer was called from.
 Focus buffers can be discarded a lot.  This allows buffer locals of a
 base buffer to be relied upon for implementing things.")
-
 (defvar moc--fixed-frame-timer nil)
-
 (defvar-local moc--face-remap-cookies nil)
 
 ;; * Mass Face Remapping
@@ -217,9 +219,9 @@ base buffer to be relied upon for implementing things.")
   "Prompt for a preset.
 PRESET is passed from elisp programs to load pre-deteremined presets."
   (when-let* ((key (or preset
-                      (completing-read
-                       "Choose a remap preset: "
-                       moc-face-remap-presets))))
+                       (completing-read
+                        "Choose a remap preset: "
+                        moc-face-remap-presets))))
     (cdr (assoc-string key moc-face-remap-presets))))
 
 (defun moc-face-remap-clear ()
@@ -628,7 +630,7 @@ Use in suffix command."
 (transient-define-prefix moc-dispatch ()
   "You are the MC.
 This is likely the command you want to bind globally to become familiar
-with MC commands and to make many adjustments at once."
+with MoC commands and to make many adjustments at once."
   :refresh-suffixes t
   [["Buffer Text Scale"
     (:info #'moc--dispatch-text-scale)
@@ -660,7 +662,7 @@ with MC commands and to make many adjustments at once."
 ;; 🚧 If you consider working on this feature, support for other file type
 ;; support and naming support for workflows like animation are good to add along
 ;; the way.  There are other packages for building gifs etc that would be
-;; welcome in MC as optional dependencies.
+;; welcome in MoC as optional dependencies.
 
 (defun moc--screenshot-save-dir ()
   "Return the users screenshot save path, which may be computed."
@@ -693,7 +695,7 @@ This just provides minor conveniences like pre-configured save path with
 ;; Only add to the `buffer-list-update-hook' locally so we don't need to unhook
 (defun moc--focus-refresh (window)
   "Refresh buffer in WINDOW if buffer is visible again."
-  (when (eq (window-buffer window) (get-buffer "*MC Focus*"))
+  (when (eq (window-buffer window) (get-buffer "*MoC Focus*"))
     (set-window-fringes window 0 0)
     (set-face-attribute 'fringe (window-frame window)
                         :background 'unspecified)
@@ -717,7 +719,7 @@ from `overlay-properties'."
   (remove-hook 'window-state-change-functions #'moc--focus-refresh)
   ;; hidden cursor is buffer local and naturally goes away, but subtle cursor is
   ;; global and needs to be turned off if it wasn't on when focusing began.
-  ;; XXX two MC buffers could restore a modified value
+  ;; XXX two MoC buffers could restore a modified value
   (when moc--focus-old-fringe-background
     (set-face-attribute 'fringe (selected-frame) :background
                         moc--focus-old-fringe-background))
@@ -745,12 +747,12 @@ from `overlay-properties'."
 (defun moc--display-fullscreen (&rest args)
   "Show TEXT with properties in a fullscreen window.
 See `mc-focus' for meaning of keys in ARGS."
-  (when-let* ((old (get-buffer "*MC Focus*")))
+  (when-let* ((old (get-buffer "*MoC Focus*")))
     (kill-buffer old))
   (setq moc--focus-old-window-config (current-window-configuration))
   (let* ((base (current-buffer))
-         (buffer (get-buffer-create "*MC Focus*"))
          (text (moc--focus-clean-properties (plist-get args :string)))
+         (buffer (get-buffer-create "*MoC Focus*"))
          (overlay-specs (plist-get args :overlays))
          (invisibility-spec (plist-get args :invisibility-spec))
          (highlights (plist-get args :highlights))
@@ -1007,9 +1009,9 @@ OCCLUDES is a list of conses of BEG END to be occluded."
 
 (defsubst moc--focus-assert-mode ()
   "Raise user error if commands are called in wrong mode."
-  (if-let* ((buffer (get-buffer "*MC Focus*")))
+  (if-let* ((buffer (get-buffer "*MoC Focus*")))
       (set-buffer buffer)
-    (user-error "No MC buffer found")))
+    (user-error "No MoC buffer found")))
 
 (defun moc-focus-highlight-clear ()
   "Delete all highlights and occludes."
@@ -1030,9 +1032,9 @@ OCCLUDES is a list of conses of BEG END to be occluded."
 (defun moc-focus-quit ()
   "Fullscreen quit command."
   (interactive)
-  (if-let* ((buffer (get-buffer "*MC Focus*")))
+  (if-let* ((buffer (get-buffer "*MoC Focus*")))
       (kill-buffer buffer)
-    (user-error "No MC buffer found")))
+    (user-error "No MoC buffer found")))
 
 (put 'moc-focus-quit 'mode 'moc-focus-mode)
 
@@ -1082,7 +1084,6 @@ The shadow face will be added to the region between BEG and END."
 
 (put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
 
-
 (defun moc-focus-toggle-overlays ()
   (interactive)
   (moc--focus-assert-mode)
@@ -1107,7 +1108,6 @@ The shadow face will be added to the region between BEG and END."
           moc--focus-invisibilty-spec)))
 
 (put 'moc-focus-toggle-invisibility 'mode 'moc-focus-mode)
-
 
 (defun moc-focus-kill-ring-save ()
   "Save the focused text and highlights to a playback expression."
@@ -1300,7 +1300,7 @@ Used in suffix."
 
 ;;;###autoload (autoload 'moc-focus-dispatch "moc" nil t)
 (transient-define-prefix moc-focus-dispatch ()
-  "Transient menu for MC Focus mode."
+  "Transient menu for MoC Focus mode."
   :transient-non-suffix t
   ;; Keep this in sync with `moc-focus-mode-map`!
   [["Highlights"
