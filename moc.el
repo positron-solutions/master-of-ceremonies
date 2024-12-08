@@ -212,6 +212,11 @@ Focus buffers can be discarded a lot.  This allows buffer locals of a
 base buffer to be relied upon for implementing things.")
 (defvar moc--fixed-frame-timer nil)
 (defvar-local moc--face-remap-cookies nil)
+(defconst moc-focus-playback-version 0
+  "🚧 This version is considered unstable.
+It will be updated to 1 after some stability has been observed.  It is
+being added now so that plaback expressions will be clearly marked as
+unstable.")
 
 ;; * Mass Face Remapping
 
@@ -741,59 +746,56 @@ from `overlay-properties'."
   (setq moc--focus-old-window-config nil
         moc--focus-cleaned-text nil))
 
-;; 🚧 Presently this code does a good job on the first pass and replay.
-;; However, displaying in other buffers or re-displaying the buffer in another
-;; window will likely leave something to be desired.
-(defun moc--display-fullscreen (&rest args)
-  "Show TEXT with properties in a fullscreen window.
-See `mc-focus' for meaning of keys in ARGS."
+(defun moc-focus-playback (&rest args)
+  "Replay ARGS in a focus buffer.
+See `mc-focus' for meaning of keys in ARGS.
+
+⚠️ The version is not checked in this function.  The caller is
+responsible for maintaining this package as a properly versioned
+dependency and performing their own check of
+`moc-focus-playback-version' in that case and throw throw your user
+errors upstream!
+
+🚧 Presently this code does a good job on the first pass and replay.
+However, displaying in other buffers or re-displaying the buffer in
+another window will likely leave something to be desired."
   (when-let* ((old (get-buffer "*MoC Focus*")))
     (kill-buffer old))
-  (setq moc--focus-old-window-config (current-window-configuration))
   (let* ((base (current-buffer))
-         (text (moc--focus-clean-properties (plist-get args :string)))
          (buffer (get-buffer-create "*MoC Focus*"))
+         (text (plist-get args :text))
          (overlay-specs (plist-get args :overlays))
          (invisibility-spec (plist-get args :invisibility-spec))
+         (_continuation (plist-get args :continuation))
          (highlights (plist-get args :highlights))
          (occludes (plist-get args :occludes)))
+    (setq moc--focus-old-window-config (current-window-configuration))
     (delete-other-windows)
-    (let ((inhibit-message t))
-      (switch-to-buffer buffer))
+    (switch-to-buffer buffer)
     (setq-local moc-focus-base-buffer base)
     (add-hook 'kill-buffer-hook #'moc--focus-cleanup nil t)
     (moc-focus-mode)
+
     (setq-local mode-line-format nil)
     (setq moc--focus-old-fringe-background (face-attribute 'fringe :background))
     (set-face-attribute 'fringe (selected-frame) :background 'unspecified)
     (setq buffer-invisibility-spec invisibility-spec)
     (setq moc--focus-invisibilty-spec invisibility-spec)
-    (setq moc--focus-old-quiet
-          moc-quiet-mode)
-    (setq moc--focus-old-subtle-cursor
-          moc-subtle-cursor-mode)
+    (setq moc--focus-old-subtle-cursor moc-subtle-cursor-mode)
     (moc-hide-cursor-mode 1)
+    (setq moc--focus-old-quiet moc-quiet-mode)
     (moc-quiet-mode 1)
-    ;; TODO minibuffer messages are not cleared immediately when replaying with
-    ;; interactive evaluation.  The result of this function is displayed.  Yuck.
     (read-only-mode -1)
-
-    ;; Before we start adding properties, save the input text without additional
-    ;; properties.
     (setq-local moc--focus-cleaned-text text)
-    (insert (propertize text 'line-prefix nil 'wrap-prefix nil))
+    (insert text)
     (setq-local moc--focus-overlay-specs overlay-specs)
-    (when overlay-specs
-      (moc--focus-apply-overlays overlay-specs))
-
+    (when overlay-specs (moc--focus-apply-overlays overlay-specs))
     (mapc (lambda (remap) (moc-face-remap remap t))
           moc-focus-default-remaps)
-
     (setq moc--focus-highlights highlights)
     ;; TODO distinguish fully shadowed versus no highlights
     (when highlights
       (moc--focus-apply-highlights highlights))
-
     (setq moc--focus-occludes occludes)
     (when occludes
       (moc--focus-apply-occludes occludes))
@@ -1127,8 +1129,93 @@ The shadow face will be added to the region between BEG and END."
 
 ;; ** Focus Extraction & Pre-Processing
 
+(defun moc--focus-copy-overlays (buffer beg end)
+  "Copy buffers between BEG and END to BUFFER.
+It is assumed that BUFFER was offset by BEG."
+  (let ((overlays (overlays-in beg end)))
+    (while-let ((o (pop overlays))
+                (props (overlay-properties o))
+                (oc (make-overlay (max 1 (- (overlay-start o) beg))
+                                  (min beg (- (overlay-end o) beg))
+                                  buffer)))
+      (while-let ((prop (pop props)))
+        (overlay-put oc prop (pop props))))))
+
+(defun moc--focus-pad (buffer padding)
+  "Insert padding before first line in buffer."
+  (when (< padding 0)
+    (error "Invalid padding %d" padding))
+  (let ((old (current-buffer)))
+    (set-buffer buffer)
+    (goto-char 1)
+    (insert (make-string padding 32))   ; 32 is space
+    (set-buffer old)))
+
+(defun moc--focus-trim-rect (buffer _rect _offset)
+  "Trim BUFFER to within BEG, COLS, and LINES.
+This must be accomplished before whitespace trimming, which pays
+attention to content, not buffer positions.  The basic recipe is to
+extract the rectangle and then trim each line down to it's span."
+  (let ((old (current-buffer)))
+    (set-buffer buffer)
+    ;; XXX not done at all
+    (set-buffer old)))
+
+(defun moc--focus-forward-whitespace (limit &optional multiline)
+  "Move forward from through all whitespace.
+Do not exceed LIMIT.  Optional MULTILINE will also move forward through
+newlines."
+  (if multiline
+      (re-search-forward "[^[:space:]\t\n\r]" limit t)
+    (re-search-forward "[^ \t]" limit t))
+  (goto-char (match-beginning 0)))
+
+(defun moc--focus-backward-whitespace (limit &optional multiline)
+  (while (and (> (point) limit)
+              (not (bobp))
+              (looking-back (if multiline
+                                "[[:space:]]+"
+                              "[ \t]+")
+                            limit t))
+    (goto-char (match-beginning 0))))
+
+(defun moc--focus-trim-whitespace (buffer)
+  "Clean unwanted whitespace.
+We also take this opportunity to accomplish the effect of rectangle
+selection."
+  (let ((old (current-buffer)))
+    (set-buffer buffer)
+    ;; Trim whitespace lines at beginning and end
+    (goto-char (point-min))
+    (moc--focus-forward-whitespace (point-max) t)
+    (unless (eolp)
+      (goto-char (line-beginning-position)))
+    (delete-region (point-min) (point))
+    (goto-char (point-max))
+    (moc--focus-backward-whitespace (point-min) t)
+    (delete-region (point) (point-max))
+
+    (goto-char (point-min))
+    (let ((indent-column (current-indentation)))
+      (while (< (point) (point-max))
+        (goto-char (line-beginning-position))
+        (unless (looking-at-p "^[[:space:]]*$")
+          (when (< (current-indentation) indent-column)
+            (setq indent-column (current-indentation))))
+        (forward-line))
+      (goto-char (point-min))
+      ;; Run back through and delete indentation and hanging white space
+      (while (not (eobp))
+        (move-to-column indent-column)
+        (delete-region (line-beginning-position) (point))
+        (goto-char (line-end-position))
+        (moc--focus-backward-whitespace (line-beginning-position) nil)
+        (delete-region (point) (line-end-position))
+        (forward-line)))
+    (set-buffer old)))
+
 (defun moc--focus-clean-properties (text)
-  "Reduce the properties for more succinct playback expressions.
+  "Reduce text properties for more succinct playback expressions.
 When using `moc-focus-kill-ring-save', we have to save every single text
 property.  Appropriate behavior for this function is to return TEXT only
 with properties that will affect display.  It would be appropriate to
@@ -1153,27 +1240,26 @@ text we have is likely incomplete out of context."
      dirty-props)
     clean-string))
 
-(defun moc--focus-serialize-overlay (overlay spans)
+(defun moc--focus-extract-text (buffer)
+  "Grab the text and clean up its properties."
+  (let ((old (current-buffer)))
+    (set-buffer buffer)
+    (let ((raw (buffer-substring (point-min) (point-max))))
+      (set-buffer old)
+      (moc--focus-clean-properties raw))))
+
+(defun moc--focus-serialize-overlay (overlay)
   "Serialize OVERLAY properties for playback etc.
-The overlay's start and end are translated using BEG and SPANS to ensure
-that the resulting overlay information will result in an overlay that
-accurately applies to the same text in the focus buffer that OVERLAY
-applies to in the source buffer.
+In order to replay, we need descriptions of overlays, not actual
+overlays, which are tied to buffers.  The return value is:
 
-The return value is (BEG END . PROPS) where PROPS is the list returned
-from `overlay-properties'.
+(BEG END . PROPS)
 
-🚧 This first pass only does basic translation without consideration for
-trimming.  SPANS is just ((BEG . END)) for now."
+PROPS is a list returned from `overlay-properties'."
   (let ((props (overlay-properties overlay))
-        (beg (caar spans))
         clean)
-    ;; TODO translates sizes beyond SPANS
-
-    ;; An overlay beginning right on beg will start at buffer position 1, so we
-    ;; have to add 1 (by subtracting -1)
-    (push (max 1 (- (overlay-start overlay) beg -1)) clean)
-    (push (max 1 (- (overlay-end overlay) beg -1)) clean)
+    (push (overlay-start overlay) clean)
+    (push (overlay-end overlay) clean)
     (while-let ((prop (pop props)))
       ;; TODO make "nice" properties configurable and test out line-prefix to be
       ;; sure it plays nice with our centering.
@@ -1191,58 +1277,110 @@ trimming.  SPANS is just ((BEG . END)) for now."
         (push (pop props) clean)))
     (nreverse clean)))
 
+;; TODO customization
+(defun moc--focus-filter-overlay (o)
+  (unless (eq (overlay-get o 'face) 'region)
+    o))
+
+(defun moc--focus-extract-overlays (buffer)
+  "Grab and serialize overlays from BUFFER."
+  (let ((old (current-buffer))
+        serialized)
+    (set-buffer buffer)
+    (let ((overlays (overlays-in (point-min) (point-max))))
+      (while-let ((o (pop overlays)))
+        (when (moc--focus-filter-overlay o)
+          (push (moc--focus-serialize-overlay o) serialized))))
+    (prog1 serialized
+      (set-buffer old))))
+
+(defun moc--focus-get-continuation ()
+  "Return a list of continuation options 🚧.
+🚧 This is completely experimental and highly likely to evolve.  You may
+have to edit expressions using this key later.  The current decision on
+continuation handling is to defer it until we are drawing the output.
+We don't know the right screen aspect ratio until display time."
+  (cond
+   ((bound-and-true-p visual-line-mode)
+    (let ((visual visual-line-mode)
+          (adaptive (bound-and-true-p
+                     adaptive-wrap-prefix-mode))
+          cont)
+      (when visual (push 'visual-line-mode cont))
+      (when adaptive (push 'adaptive-wrap-prefix-mode
+                           cont))
+      cont))
+   (t (list 'truncate-lines))))
+
+(defun moc--focus-check-version (version)
+  (let ((serialization-version version))
+    (unless (and serialization-version
+                 (= serialization-version moc-focus-playback-version))
+      (display-warning '(moc moc-focus moc-focus-playback)
+                       "Non-matching serialization and playback versions %d %d"
+                       serialization-version
+                       moc-focus-playback-version))))
+
 ;;;###autoload
 (defun moc-focus (&rest args)
   "Focus selected region.
 ARGS contains the following keys:
 
+- :continuation 🚧 This option is experimental.  Right now it contains enough
+  information for the downstream `mc-focus-playback' to decide a continuation
+  strategy and to
 - :overlays is a list of (BEG END . PROPS) where PROPS is returned by
   `overlay-properties'.  Each element of the list is used to rehydrate an
   overlay to recreate the capture source.
 - :invisibility-spec propagates the buffer's invisibility spec
 - :highlights a list of conses of BEG END that will be highlighted
 - :occludes a list of conses of BEG END that will be occluded
-- :string 🚧 is text to be displayed.  This key is considered least stable.  It
-  will likely work in a backwards compatible way, but if it turns out to lose
-  necessary information, another key could take its place.
-
-🚧 This function and its signature are likely to evolve.  The base
-interactive use case of highlighting a region is stable and very useful."
+- :text The text to be displayed.
+- :version Serialization and playback are coupled.  When versions don't match
+  or are missing, a warning will be displayed."
   (interactive
    (if (region-active-p)
-       (let* ((region-bol (save-excursion
-                            (goto-char (region-beginning))
-                            (if (bolp) (point) (line-beginning-position))))
-              (whitespace (string-match-p
-                           "\s-+" (buffer-substring region-bol (point))))
-              (beg (if rectangle-mark-mode
-                       (region-beginning)
-                     (if whitespace region-bol
-                       (region-beginning))))
-              ;; XXX this is incomplete
-              ;; TODO trimming support
-              (spans (list (cons beg (region-end))))
-              (overlays (unless rectangle-mark-mode
-                          (cl-loop for o in (overlays-in beg (region-end))
-                                   when (not (eq (overlay-get o 'face)
-                                                 'region))
-                                   collect o)))
-              (translated-overlays (mapcar (lambda (overlay)
-                                             (moc--focus-serialize-overlay
-                                              overlay spans))
-                                           overlays)))
-         (list
-          :invisibility-spec buffer-invisibility-spec
-          :highlights nil
-          :occludes nil
-          :overlays translated-overlays
-          :string (if rectangle-mark-mode
-                      (string-join
-                       (extract-rectangle (region-beginning) (region-end))
-                       "\n")
-                    (buffer-substring beg (region-end)))))
+       (save-excursion
+         (when-let ((old (get-buffer " *MoC Processing")))
+           (display-warning '(mc mc-focus mc-focus-playback)
+                            (format  "Killing stale processing buffer %s"
+                                     " *MoC Processing")
+                            :warning))
+         (let* ((buffer (get-buffer-create " *MoC Processing*"))
+                (rect (when rectangle-mark-mode
+                        (extract-rectangle-bounds (region-beginning)
+                                                  (region-end))))
+                (beg (region-beginning))
+                (end (region-end))
+                before)
+           (when (string= (buffer-name) " *MoC Processing*")
+             (user-error "Cannot process the processing buffer: %s"
+                         (buffer-name)))
+           (goto-char beg)
+           (goto-char (line-beginning-position))
+           (setq before (point))
+           (copy-to-buffer buffer beg end)
+
+           (moc--focus-copy-overlays buffer beg end)
+           (moc--focus-pad buffer (- beg before))
+           (moc--focus-trim-rect buffer rect before)
+           (moc--focus-trim-whitespace buffer)
+           ;; TODO user post-trimming function
+
+           (let* ((text (moc--focus-extract-text buffer))
+                  (overlays (moc--focus-extract-overlays buffer)))
+             (kill-buffer buffer)
+             (list
+              :invisibility-spec buffer-invisibility-spec
+              :highlights nil
+              :occludes nil
+              :overlays overlays
+              :continuation (moc--focus-get-continuation)
+              :text text
+              :version moc-focus-playback-version))))
      (user-error "No region selected")))
-  (apply #'moc--display-fullscreen args))
+  (moc--focus-check-version (plist-get args :version))
+  (apply #'moc-focus-playback args))
 
 ;; ** Focus UI
 
@@ -1270,8 +1408,8 @@ Used in suffix command."
 
 (defun moc--focus-cursor-toggle ()
   "Toggle hidden and subtle cursor.
-When in an MC buffer, likely the user does not want to ever have a fully
-visible cursor.  This command directly toggles hidden and subtle
+When in a focus buffer, likely the user does not want to ever have a
+fully visible cursor.  This command directly toggles hidden and subtle
 instead."
   (interactive)
   (if moc-subtle-cursor-mode
