@@ -6,7 +6,21 @@
 #+export_file_name: RELEASE.md
 #+options: toc:nil broken-links:nil num:nil
 
-* v0.5.0 Overlay Playback 🕶️ :latest:
+* v0.6.0 Versioned Playback 📽️ :latest:
+The big story for this version is to re-implement the excerpt processing.  The implementation chosen uses a temporary buffer and Emacs text editing functions, building on top of Emacs text processing awareness.  As Emacs grows smarter, so will MoC.
+** Added ❇️
+- ~moc-focus-playback-version~ to make it possible to compare the playback version of a playback expression
+** Changed 🔮
+- Keys for playback have changed:
+  + =:version= so we can error when the MoC version is wrong and let the user know they need to re-generate expressions
+  + =:continuation= to tell the now officially named ~moc-focus-replay~ function how to handle long lines
+  + =:string:= -> =:text= because.. it is a string when passing but text is a more common name for buffer contents, which are not strings.
+- =obscure= -> =occlude=
+** Fixed 🚒
+- ~moc-focus~ now trims unwanted whitespace:
+  + indentation
+  + empty leading and trailing lines
+* v0.5.0 Overlay Playback 🕶️
 In preparation for trimming, overlay support has been rearranged to perform translation and cleaning of overlays prior to first display.  By passing in serialized overlays from the interactive command, serialization and playback was more natural to support.
 
 🚧 The playback structure will likely change again after trimming support is added.
