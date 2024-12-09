@@ -934,7 +934,6 @@ behavior is not guaranteed."
         (let ((o (make-overlay (car h) (cdr h))))
           ;; TODO customize un-highlight face
           (overlay-put o 'face `(shadow (:background ,background)))
-          (overlay-put o 'priority 9999)
           (push o moc--focus-highlight-overlays))))))
 
 (defun moc--focus-un-highlight (beg end)
