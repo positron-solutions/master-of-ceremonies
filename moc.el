@@ -1054,7 +1054,9 @@ OCCLUDES is a list of conses of BEG END to be occluded."
                      (list :foreground background
                            :background background
                            :extend t))
-        (overlay-put ov 'priority 1000) ; arbitrary
+        ;; This implementation allows occludes and highlights to overlap, but
+        ;; occludes are just higher priority
+        (overlay-put ov 'priority 10000)
         (push ov moc--focus-occluding-overlays)))))
 
 ;; ** Focus UI Commands
@@ -1320,7 +1322,6 @@ PROPS is a list returned from `overlay-properties'."
       (when (member prop '(button
                            display
                            face
-                           height
                            invisible
                            line-height
                            line-prefix
