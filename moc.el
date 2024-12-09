@@ -859,7 +859,7 @@ another window will likely leave something to be desired."
                        moc-focus-max-scale))
            (scale-overlay (make-overlay 1 (point-max))))
       (overlay-put scale-overlay 'face `(:height ,scale))
-      (overlay-put scale-overlay 'priority 9999)
+      (overlay-put scale-overlay 'priority 10000)
       (set-window-fringes (selected-window) 0 0)
       (setq moc--focus-scale-overlay scale-overlay)
       ;; Now that the text is its final size, adjust the vertical and horizontal
@@ -928,11 +928,14 @@ behavior is not guaranteed."
       (push (cons (cdr left) (point-max))
             un-highlights))
     ;; apply all unhighlights
-    (dolist (h un-highlights)
-      (let ((o (make-overlay (car h) (cdr h))))
-        ;; TODO customize un-highlight face
-        (overlay-put o 'face 'shadow)
-        (push o moc--focus-highlight-overlays)))))
+    (let ((background (or (face-attribute 'default :background)
+                          'unspecified)))
+      (dolist (h un-highlights)
+        (let ((o (make-overlay (car h) (cdr h))))
+          ;; TODO customize un-highlight face
+          (overlay-put o 'face `(shadow (:background ,background)))
+          (overlay-put o 'priority 9999)
+          (push o moc--focus-highlight-overlays))))))
 
 (defun moc--focus-un-highlight (beg end)
   "Remove region between BEG and END from highlights.
