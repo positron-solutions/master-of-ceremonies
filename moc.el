@@ -1360,12 +1360,12 @@ We don't know the right screen aspect ratio until display time."
   (cond
    ((bound-and-true-p visual-line-mode)
     (let ((visual visual-line-mode)
-          (adaptive (bound-and-true-p
-                     adaptive-wrap-prefix-mode))
+          (visual-wrap (bound-and-true-p visual-wrap-prefix-mode))
+          (adaptive (bound-and-true-p adaptive-wrap-prefix-mode))
           cont)
       (when visual (push 'visual-line-mode cont))
-      (when adaptive (push 'adaptive-wrap-prefix-mode
-                           cont))
+      (when visual-wrap (push 'visual-wrap-prefix-mode cont))
+      (when adaptive (push 'adaptive-wrap-prefix-mode cont))
       cont))
    (t (list 'truncate-lines))))
 
