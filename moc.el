@@ -1235,6 +1235,7 @@ We also take this opportunity to accomplish the effect of rectangle
 selection."
   (let ((old (current-buffer)))
     (set-buffer buffer)
+    (setq buffer-invisibility-spec nil)
     ;; Trim whitespace lines at beginning and end
     (goto-char (point-min))
     (moc--focus-forward-whitespace (point-max) t)
@@ -1243,12 +1244,15 @@ selection."
     (delete-region (point-min) (point))
     (goto-char (point-max))
     (moc--focus-backward-whitespace (point-min) t)
+    (when (looking-at "\n")
+      (forward-char))
     (delete-region (point) (point-max))
 
     (goto-char (point-min))
     (let ((indent-column (current-indentation)))
       (while (< (point) (point-max))
         (goto-char (line-beginning-position))
+        ;; use lower indentation if encountered, unless line is empty whitespace
         (unless (looking-at-p "^[[:space:]]*$")
           (when (< (current-indentation) indent-column)
             (setq indent-column (current-indentation))))
