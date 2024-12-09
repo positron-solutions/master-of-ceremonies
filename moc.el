@@ -146,7 +146,7 @@ is valid value for the `fullscreen' frame parameter.
 
 (defcustom moc-face-remap-presets
   '((bold . ((default :weight bold)))
-    (org-block-no-background . ((org-block :background nil :extend nil))))
+    (org-block-no-background . ((org-block :background unspecified :extend unspecified))))
    "Face remapping presets.
 Value is an alist.  Each entry should be a cons of SYMBOL PRESET.
 SYMBOL will be used to choose the PRESET.  PRESET is an ALIST where each
