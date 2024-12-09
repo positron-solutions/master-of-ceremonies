@@ -753,7 +753,7 @@ from `overlay-properties'."
   (setq moc--focus-old-window-config nil
         moc--focus-cleaned-text nil))
 
-(defun moc--text-pixel-size (window continuation)
+(defun moc--focus-text-pixel-size (window continuation)
   "Calculate the effective size of text in WINDOW.
 The effective size depends on the content and our continuation strategy.
 If continuation style is truncate, the window pixel size is used unless
@@ -841,7 +841,7 @@ another window will likely leave something to be desired."
     (let* ((w (window-pixel-width))
            (h (window-pixel-height))
            (window-pixel-area (* h w))
-           (text-pixel-size (moc--text-pixel-size
+           (text-pixel-size (moc--focus-text-pixel-size
                              (selected-window) continuation))
            (text-pixel-w (float (car text-pixel-size)))
            (text-pixel-h (float (cdr text-pixel-size)))
