@@ -146,7 +146,8 @@ is valid value for the `fullscreen' frame parameter.
 
 (defcustom moc-face-remap-presets
   '((bold . ((default :weight bold)))
-    (org-block-no-background . ((org-block :background unspecified :extend unspecified))))
+    (org-block-no-background . ((org-block :background unspecified
+                                           :extend unspecified))))
    "Face remapping presets.
 Value is an alist.  Each entry should be a cons of SYMBOL PRESET.
 SYMBOL will be used to choose the PRESET.  PRESET is an ALIST where each
@@ -762,6 +763,7 @@ presume that"
   (let ((basic-size (window-text-pixel-size window)))
     (cond
      ((member 'truncate-lines continuation)
+      ;; find the longest line after truncating to `fill-column' chars
       (save-excursion
         (goto-char (point-min))
         (let (effective-width)
