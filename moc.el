@@ -171,6 +171,10 @@ This timer calls `moc-subtle-cursor-timer-function' every
 (defvar moc-subtle-cursor-blinks-done 0
   "Number of blinks done since we started blinking on NS, X, and MS-Windows.")
 
+(defvar-local moc--focus-margin-left 0
+  "For margin maintenance in `moc--focus-refresh'")
+(defvar-local moc--focus-margin-right 0
+  "For margin maintenance in `moc--focus-refresh'")
 (defvar-local moc--focus-overlay-specs nil
   "Serialized specifications of overlays.
 Structure is a list of (BEG END . PROPS) where PROPS comes from
@@ -704,7 +708,10 @@ This just provides minor conveniences like pre-configured save path with
     (set-window-fringes window 0 0)
     (set-face-attribute 'fringe (window-frame window)
                         :background 'unspecified)
-    (set-window-margins window nil)))
+    (unless (= (current-left-margin) moc--focus-margin-left)
+      (set-window-margins window
+                          moc--focus-margin-right
+                          moc--focus-margin-left))))
 
 (defun moc--focus-apply-overlays (overlay-specs &optional offset)
   "Apply OVERLAY-SPECS to the buffer.
@@ -746,6 +753,35 @@ from `overlay-properties'."
   (setq moc--focus-old-window-config nil
         moc--focus-cleaned-text nil))
 
+(defun moc--text-pixel-size (window continuation)
+  "Calculate the effective size of text in WINDOW.
+The effective size depends on the content and our continuation strategy.
+If continuation style is truncate, the window pixel size is used unless
+there are lines that exceed `fill-column'.  When doing visual filling, we
+presume that"
+  (let ((basic-size (window-text-pixel-size window)))
+    (cond
+     ((member 'truncate-lines continuation)
+      (save-excursion
+        (goto-char (point-min))
+        (let (effective-width)
+          (while (not (eobp))
+            (goto-char (line-end-position))
+            (when (> (current-column) fill-column)
+              (move-to-column fill-column)
+              (let ((line-size (window-text-pixel-size
+                                window (line-beginning-position) (point))))
+                (when (or (null effective-width)
+                          (> (car line-size)
+                             effective-width))
+                  (setq effective-width
+                        (car line-size)))))
+            (forward-line))
+          (cons (or effective-width
+                    (car basic-size))
+                (cdr basic-size)))))
+     (t basic-size))))
+
 (defun moc-focus-playback (&rest args)
   "Replay ARGS in a focus buffer.
 See `mc-focus' for meaning of keys in ARGS.
@@ -766,7 +802,7 @@ another window will likely leave something to be desired."
          (text (plist-get args :text))
          (overlay-specs (plist-get args :overlays))
          (invisibility-spec (plist-get args :invisibility-spec))
-         (_continuation (plist-get args :continuation))
+         (continuation (plist-get args :continuation))
          (highlights (plist-get args :highlights))
          (occludes (plist-get args :occludes)))
     (setq moc--focus-old-window-config (current-window-configuration))
@@ -800,10 +836,13 @@ another window will likely leave something to be desired."
     (when occludes
       (moc--focus-apply-occludes occludes))
 
+    ;; First scale the text up to the size it will need to be after the
+    ;; continuation strategy and horizontal & vertical centering.
     (let* ((w (window-pixel-width))
            (h (window-pixel-height))
            (window-pixel-area (* h w))
-           (text-pixel-size (window-text-pixel-size))
+           (text-pixel-size (moc--text-pixel-size
+                             (selected-window) continuation))
            (text-pixel-w (float (car text-pixel-size)))
            (text-pixel-h (float (cdr text-pixel-size)))
            (text-pixel-area (* text-pixel-w text-pixel-h))
@@ -821,25 +860,36 @@ another window will likely leave something to be desired."
            (scale-overlay (make-overlay 1 (point-max))))
       (overlay-put scale-overlay 'face `(:height ,scale))
       (overlay-put scale-overlay 'priority 9999)
+      (set-window-fringes (selected-window) 0 0)
       (setq moc--focus-scale-overlay scale-overlay)
-
       ;; Now that the text is its final size, adjust the vertical and horizontal
       ;; alignment.
-      (let* ((text-size (window-text-pixel-size))
-             (margin-left (floor (/ (- w (car text-size)) 2.0)))
-             (margin-top (/ (- h (cdr text-size)) 2.0))
+      (let* ((text-size (moc--text-pixel-size
+                         (selected-window) continuation))
+             (margin-left (max 1 (floor (/ (- w (car text-size)) 2.0))))
+             (margin-top (max 1.0 (/ (- h (cdr text-size)) 2.0)))
              (margin-lines (/ margin-top (frame-char-height))))
-
-        (set-window-fringes (selected-window) 0 0)
-        (set-window-margins (selected-window) nil nil)
+        ;; TODO dynamically update / maintain specified space or margins
+        (cond ((member 'truncate-lines continuation)
+               (let ((margin-cols (1- (floor (/ margin-left
+                                                (frame-char-width))))))
+                 (set-window-margins (selected-window) margin-cols margin-cols)
+                 (setq moc--focus-margin-left margin-cols)
+                 (setq moc--focus-margin-right margin-cols)
+                 (toggle-truncate-lines 1)))
+              ;; TODO adjust line wrap for adaptive filling.  Might need margins!
+              (nil
+               ;; TODO continuation "single line!"
+               ;; (set-window-margins (selected-window) nil nil)
+               (let ((o (make-overlay (point-min) (point-max))))
+                 (overlay-put o 'line-prefix
+                              (propertize " " 'display
+                                          `(space :align-to (,margin-left))))
+                 (overlay-put o 'priority 9999)))
+              (t
+               (visual-line-mode 1)
+               (adaptive-wrap-prefix-mode 1)))
         (add-hook 'window-state-change-functions #'moc--focus-refresh nil t)
-
-        ;; TODO dynamically maintain specified space
-        (let ((o (make-overlay (point-min) (point-max))))
-          (overlay-put o 'line-prefix
-                       (propertize " " 'display
-                                   `(space :align-to (,margin-left))))
-          (overlay-put o 'priority 9999))
         (goto-char 0)
         (insert (propertize "\n" 'face `(:height ,margin-lines)))
         (setf (overlay-start scale-overlay) 2)
