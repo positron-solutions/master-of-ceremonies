@@ -757,38 +757,32 @@ from `overlay-properties'."
 (defun moc--focus-text-pixel-size (window continuation)
   "Calculate the effective size of text in WINDOW.
 The effective size depends on the content and our continuation strategy.
-If continuation style is truncate, the window pixel size is used unless
-there are lines that exceed `fill-column'.  When doing visual filling, we
-presume that"
-  (let ((basic-size (window-text-pixel-size window)))
-    (cond
-     ((member 'truncate-lines continuation)
-      ;; find the longest line after truncating to `fill-column' chars
-      (save-excursion
-        (goto-char (point-min))
-        (let (effective-width)
-          (while (not (eobp))
-            (goto-char (line-end-position))
-            (when (> (current-column) fill-column)
-              (move-to-column fill-column)
-              (let ((line-size (window-text-pixel-size
-                                window (line-beginning-position) (point))))
-                (when (or (null effective-width)
-                          (> (car line-size)
-                             effective-width))
-                  (setq effective-width
-                        (car line-size)))))
-            (forward-line))
-          (cons (or effective-width
-                    (car basic-size))
-                (cdr basic-size)))))
-     (t basic-size))))
+Since calculating how Emacs will layout text and its size is a
+phenomenal waste of time even if it is done right, we temporarily set
+the margins to the fill-column and turn on the correct continuation
+modes and then measure the text with the benefit of everything that went
+into Emacs text flow logic in the first place."
+  (cond
+   ((member 'truncate-lines continuation)
+    (set-window-margins window (- (window-width) fill-column))
+    (toggle-truncate-lines 1)
+    (prog1 (window-text-pixel-size window)
+      (set-window-margins window nil)))
+   ((member 'visual-line-mode continuation)
+    ;; (set-window-margins window (- (window-width) fill-column))
+    (visual-line-mode 1)
+    (set-window-margins window (- (window-width) fill-column))
+    ;; TODO even without adaptive fill, this is pretty close
+    (prog1 (window-text-pixel-size window)
+      (set-window-margins window nil)
+      (visual-fill-column-mode -1)))
+   (t (window-text-pixel-size window))))
 
 (defun moc-focus-playback (&rest args)
   "Replay ARGS in a focus buffer.
 See `mc-focus' for meaning of keys in ARGS.
 
-⚠️ The version is not checked in this function.  The caller is
+⚠️ The :version is not checked in this function.  The caller is
 responsible for maintaining this package as a properly versioned
 dependency and performing their own check of
 `moc-focus-playback-version' in that case and throw throw your user
@@ -866,8 +860,19 @@ another window will likely leave something to be desired."
       (setq moc--focus-scale-overlay scale-overlay)
       ;; Now that the text is its final size, adjust the vertical and horizontal
       ;; alignment.
-      (let* ((text-size (moc--text-pixel-size
-                         (selected-window) continuation))
+
+      ;; XXX ⚠️ final call to moc--text-pixel-size in the visual case is not so
+      ;; great.  Setting window margins to width - `fill-column' does not give
+      ;; us `fill-column' visual columns.  It gives us 80 default columns.
+      ;; Visual fill column also has this drawback.  Correspondingly, post
+      ;; re-size, only the truncate strategy produces okay-ish results.  I
+      ;; re-wrote it in the span of two minutes and have doubts about why it
+      ;; still works.  In any case, we have the target support at an acceptable
+      ;; degree of tradeoffs. 🤷
+      (let* ((text-size (if (member 'visual-line-mode continuation)
+                            (cons (* scale (car text-pixel-size))
+                                  (* scale (cdr text-pixel-size)))
+                          (moc--text-pixel-size (selected-window) continuation)))
              (margin-left (max 1 (floor (/ (- w (car text-size)) 2.0))))
              (margin-top (max 1.0 (/ (- h (cdr text-size)) 2.0)))
              (margin-lines (/ margin-top (frame-char-height))))
@@ -880,17 +885,23 @@ another window will likely leave something to be desired."
                  (setq moc--focus-margin-right margin-cols)
                  (toggle-truncate-lines 1)))
               ;; TODO adjust line wrap for adaptive filling.  Might need margins!
-              (nil
-               ;; TODO continuation "single line!"
-               ;; (set-window-margins (selected-window) nil nil)
-               (let ((o (make-overlay (point-min) (point-max))))
-                 (overlay-put o 'line-prefix
-                              (propertize " " 'display
-                                          `(space :align-to (,margin-left))))
-                 (overlay-put o 'priority 9999)))
-              (t
+              ((member 'visual-line-mode continuation)
+               (let ((margin-cols (1- (floor (/ margin-left
+                                                (frame-char-width))))))
+                 (set-window-margins (selected-window) margin-cols margin-cols)
+                 (setq moc--focus-margin-left margin-cols)
+                 (setq moc--focus-margin-right margin-cols))
                (visual-line-mode 1)
-               (adaptive-wrap-prefix-mode 1)))
+               (when (member 'adaptive-wrap-prefix-mode continuation)
+                 (adaptive-wrap-prefix-mode 1))
+               (when (member 'visual-wrap-prefix-mode continuation)
+                 (visual-wrap-prefix-mode 1)))
+              (t
+               (let ((margin-cols (1- (floor (/ margin-left
+                                                (frame-char-width))))))
+                 (set-window-margins (selected-window) margin-cols margin-cols)
+                 (setq moc--focus-margin-left margin-cols)
+                 (setq moc--focus-margin-right margin-cols))))
         (add-hook 'window-state-change-functions #'moc--focus-refresh nil t)
         (goto-char 0)
         (insert (propertize "\n" 'face `(:height ,margin-lines)))
