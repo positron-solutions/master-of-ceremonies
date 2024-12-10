@@ -7,9 +7,16 @@
 #+options: toc:nil broken-links:nil num:nil
 
 * v0.6.0 Versioned Playback 📽️ :latest:
-The big story for this version is to re-implement the excerpt processing.  The implementation chosen uses a temporary buffer and Emacs text editing functions, building on top of Emacs text processing awareness.  As Emacs grows smarter, so will MoC.
+The big story for this version is to re-implement the excerpt processing.  The changes enable visual lines and playback to integrate much more smoothly.
+
+The implementation chosen uses a temporary buffer and Emacs text editing functions, building on top of Emacs text processing awareness.  As Emacs grows smarter, so will MoC.
+
+🚧 There is still a lot of instability around continuation strategies and playback expressions.
+
+A 1.0 release is within view.  After some actual use of the playback expressions, I intend to stabilize the current state of work.
 ** Added ❇️
-- ~moc-focus-playback-version~ to make it possible to compare the playback version of a playback expression
+- ~moc-focus-playback-version~ to make it possible to compare the playback version of a playback expression.  Adds the =:version= key to playback expressions.
+- =:continuation= Key supports playback with a continuation strategy.  Highly experimental and subject to change without notice before 0.7.0 🚧
 ** Changed 🔮
 - Keys for playback have changed:
   + =:version= so we can error when the MoC version is wrong and let the user know they need to re-generate expressions
@@ -20,6 +27,8 @@ The big story for this version is to re-implement the excerpt processing.  The i
 - ~moc-focus~ now trims unwanted whitespace:
   + indentation
   + empty leading and trailing lines
+- ~moc-focus~ can respect visual fill columns (🚧 experimental)
+- ~moc-focus~ may not have restored the window configuration properly since the mode activation order changes.  This has been fixed.
 * v0.5.0 Overlay Playback 🕶️
 In preparation for trimming, overlay support has been rearranged to perform translation and cleaning of overlays prior to first display.  By passing in serialized overlays from the interactive command, serialization and playback was more natural to support.
 
