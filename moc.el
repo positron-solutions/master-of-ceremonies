@@ -751,8 +751,8 @@ from `overlay-properties'."
 
   (when moc--focus-old-window-config
     (set-window-configuration moc--focus-old-window-config))
-  (setq moc--focus-old-window-config nil
-        moc--focus-cleaned-text nil))
+  ;; TODO buffer locals will die on their own
+  (setq moc--focus-cleaned-text nil))
 
 (defun moc--focus-text-pixel-size (window continuation)
   "Calculate the effective size of text in WINDOW.
@@ -801,12 +801,14 @@ another window will likely leave something to be desired."
          (continuation (plist-get args :continuation))
          (highlights (plist-get args :highlights))
          (occludes (plist-get args :occludes)))
-    (setq moc--focus-old-window-config (current-window-configuration))
+    (set-buffer buffer)
+    (moc-focus-mode)
+    ;; TODO many of these stored states are already buffer local
+    (setq-local moc--focus-old-window-config (current-window-configuration))
     (delete-other-windows)
     (switch-to-buffer buffer)
     (setq-local moc-focus-base-buffer base)
     (add-hook 'kill-buffer-hook #'moc--focus-cleanup nil t)
-    (moc-focus-mode)
 
     (setq-local mode-line-format nil)
     (setq moc--focus-old-fringe-background (face-attribute 'fringe :background))
