@@ -5,7 +5,7 @@
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
 ;; Version: 0.6.0
-;; Package-Requires: ((emacs "29.4") (hide-mode-line "1.0.3"))
+;; Package-Requires: ((emacs "29.4") (hide-mode-line "1.0.3") (transient "0.7.2"))
 ;; Homepage: http://github.com/positron-solutions/moc
 
 ;;; License:
@@ -173,9 +173,9 @@ This timer calls `moc-subtle-cursor-timer-function' every
   "Number of blinks done since we started blinking on NS, X, and MS-Windows.")
 
 (defvar-local moc--focus-margin-left 0
-  "For margin maintenance in `moc--focus-refresh'")
+  "For margin maintenance in `moc--focus-refresh'.")
 (defvar-local moc--focus-margin-right 0
-  "For margin maintenance in `moc--focus-refresh'")
+  "For margin maintenance in `moc--focus-refresh'.")
 (defvar-local moc--focus-overlay-specs nil
   "Serialized specifications of overlays.
 Structure is a list of (BEG END . PROPS) where PROPS comes from
@@ -690,7 +690,7 @@ with MoC commands and to make many adjustments at once."
 This just provides minor conveniences like pre-configured save path with
 `moc-screenshot-dir'."
   (interactive)
-  (let* ((timestamp (format-time-string "%F-%H:%M:%S" (current-time)))
+  (let* ((timestamp (format-time-string "%F-%T" (current-time)))
          (filename (format "screenshot-%s.svg" timestamp))
          (dir (moc--screenshot-save-dir))
          (path (concat dir filename))
@@ -718,7 +718,10 @@ This just provides minor conveniences like pre-configured save path with
 (defun moc--focus-apply-overlays (overlay-specs &optional offset)
   "Apply OVERLAY-SPECS to the buffer.
 OVERLAY-SPECS is a list of (BEG END . PROPS) where PROPS is obtained
-from `overlay-properties'."
+from `overlay-properties'.
+
+Optional OFFSET is for overlay toggling or other update cases where the
+buffer state is not pristine."
   (while-let ((o (pop overlay-specs)))
     (let* ((offset (or offset 0))
            (beg (+ (pop o) offset))
@@ -757,12 +760,16 @@ from `overlay-properties'."
 
 (defun moc--focus-text-pixel-size (window continuation scale)
   "Calculate the effective size of text in WINDOW.
-The effective size depends on the content and our continuation strategy.
+The effective size depends on the content and our CONTINUATION strategy.
 Since calculating how Emacs will layout text and its size is a
 phenomenal waste of time even if it is done right, we temporarily set
-the margins to the fill-column and turn on the correct continuation
+the margins to the `fill-column' and turn on the correct continuation
 modes and then measure the text with the benefit of everything that went
-into Emacs text flow logic in the first place."
+into Emacs text flow logic in the first place.
+
+🚧 SCALE is an experimental argument that adjusts the margin size when
+checking the final text size before adjusting the horizontal and
+vertical offset in `moc-focus-replay'."
   (cond
    ((member 'truncate-lines continuation)
     (set-window-margins window
@@ -1152,6 +1159,8 @@ The shadow face will be added to the region between BEG and END."
 (put 'moc-focus-un-highlight 'mode 'moc-focus-mode)
 
 (defun moc-focus-toggle-overlays ()
+  "Toggle overlays from the source.
+This enables independent demonstration of the effect of source overlays."
   (interactive)
   (moc--focus-assert-mode)
   (if moc--focus-overlays
@@ -1167,6 +1176,8 @@ The shadow face will be added to the region between BEG and END."
 (put 'moc-focus-toggle-overlays 'mode 'moc-focus-mode)
 
 (defun moc-focus-toggle-invisibility ()
+  "Toggle the `buffer-invisibility-spec'.
+This enables seeing the effects of the `invisible' text property."
   (interactive)
   (moc--focus-assert-mode)
   (if buffer-invisibility-spec
@@ -1209,7 +1220,7 @@ It is assumed that BUFFER was offset by BEG."
         (overlay-put oc prop (pop props))))))
 
 (defun moc--focus-pad (buffer padding)
-  "Insert padding before first line in buffer."
+  "Insert PADDING before first line in BUFFER."
   (when (< padding 0)
     (error "Invalid padding %d" padding))
   (let ((old (current-buffer)))
@@ -1226,10 +1237,15 @@ extract the rectangle and then trim each line down to it's span."
   (let ((old (current-buffer)))
     (set-buffer buffer)
     ;; XXX not done at all
+    (when rectangle-mark-mode
+      (delay-warning
+       '(moc moc-focus moc-focus-rectangle)
+       "Rectangular trimming has not been implemented yet"
+       :warning))
     (set-buffer old)))
 
 (defun moc--focus-forward-whitespace (limit &optional multiline)
-  "Move forward from through all whitespace.
+  "Move forward through all whitespace.
 Do not exceed LIMIT.  Optional MULTILINE will also move forward through
 newlines."
   (if multiline
@@ -1238,6 +1254,9 @@ newlines."
   (goto-char (match-beginning 0)))
 
 (defun moc--focus-backward-whitespace (limit &optional multiline)
+  "Move backward through all whitespace.
+Do not exceed LIMIT.  Optional MULTILINE will also move backward through
+newlines."
   (while (and (> (point) limit)
               (not (bobp))
               (looking-back (if multiline
@@ -1247,9 +1266,7 @@ newlines."
     (goto-char (match-beginning 0))))
 
 (defun moc--focus-trim-whitespace (buffer)
-  "Clean unwanted whitespace.
-We also take this opportunity to accomplish the effect of rectangle
-selection."
+  "Clean unwanted whitespace in BUFFER."
   (let ((old (current-buffer)))
     (set-buffer buffer)
     (setq buffer-invisibility-spec nil)
@@ -1257,7 +1274,7 @@ selection."
     (goto-char (point-min))
     (moc--focus-forward-whitespace (point-max) t)
     (unless (eolp)
-      (goto-char (line-beginning-position)))
+      (end-of-line))
     (delete-region (point-min) (point))
     (goto-char (point-max))
     (moc--focus-backward-whitespace (point-min) t)
@@ -1267,8 +1284,8 @@ selection."
 
     (goto-char (point-min))
     (let ((indent-column (current-indentation)))
-      (while (< (point) (point-max))
-        (goto-char (line-beginning-position))
+      (while (not (eobp))
+        (beginning-of-line)
         ;; use lower indentation if encountered, unless line is empty whitespace
         (unless (looking-at-p "^[[:space:]]*$")
           (when (< (current-indentation) indent-column)
@@ -1279,7 +1296,7 @@ selection."
       (while (not (eobp))
         (move-to-column indent-column)
         (delete-region (line-beginning-position) (point))
-        (goto-char (line-end-position))
+        (end-of-line)
         (moc--focus-backward-whitespace (line-beginning-position) nil)
         (delete-region (point) (line-end-position))
         (forward-line)))
@@ -1427,7 +1444,7 @@ ARGS contains the following keys:
              (user-error "Cannot process the processing buffer: %s"
                          (buffer-name)))
            (goto-char beg)
-           (goto-char (line-beginning-position))
+           (beginning-of-line)
            (setq before (point))
            (copy-to-buffer buffer beg end)
 
