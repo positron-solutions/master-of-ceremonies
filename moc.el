@@ -754,7 +754,7 @@ from `overlay-properties'."
   ;; TODO buffer locals will die on their own
   (setq moc--focus-cleaned-text nil))
 
-(defun moc--focus-text-pixel-size (window continuation)
+(defun moc--focus-text-pixel-size (window continuation scale)
   "Calculate the effective size of text in WINDOW.
 The effective size depends on the content and our continuation strategy.
 Since calculating how Emacs will layout text and its size is a
@@ -764,14 +764,17 @@ modes and then measure the text with the benefit of everything that went
 into Emacs text flow logic in the first place."
   (cond
    ((member 'truncate-lines continuation)
-    (set-window-margins window (- (window-width) fill-column))
+    (set-window-margins window
+                        (max 0 (- (window-width)
+                                  (ceiling (* fill-column scale)))))
     (toggle-truncate-lines 1)
     (prog1 (window-text-pixel-size window)
       (set-window-margins window nil)))
    ((member 'visual-line-mode continuation)
-    ;; (set-window-margins window (- (window-width) fill-column))
     (visual-line-mode 1)
-    (set-window-margins window (- (window-width) fill-column))
+    (set-window-margins window
+                        (max 0 (- (window-width)
+                                  (ceiling (* fill-column scale)))))
     ;; TODO even without adaptive fill, this is pretty close
     (prog1 (window-text-pixel-size window)
       (set-window-margins window nil)
@@ -840,7 +843,7 @@ another window will likely leave something to be desired."
            (h (window-pixel-height))
            (window-pixel-area (* h w))
            (text-pixel-size (moc--focus-text-pixel-size
-                             (selected-window) continuation))
+                             (selected-window) continuation 1.0))
            (text-pixel-w (float (car text-pixel-size)))
            (text-pixel-h (float (cdr text-pixel-size)))
            (text-pixel-area (* text-pixel-w text-pixel-h))
@@ -862,19 +865,8 @@ another window will likely leave something to be desired."
       (setq moc--focus-scale-overlay scale-overlay)
       ;; Now that the text is its final size, adjust the vertical and horizontal
       ;; alignment.
-
-      ;; XXX ⚠️ final call to moc--text-pixel-size in the visual case is not so
-      ;; great.  Setting window margins to width - `fill-column' does not give
-      ;; us `fill-column' visual columns.  It gives us 80 default columns.
-      ;; Visual fill column also has this drawback.  Correspondingly, post
-      ;; re-size, only the truncate strategy produces okay-ish results.  I
-      ;; re-wrote it in the span of two minutes and have doubts about why it
-      ;; still works.  In any case, we have the target support at an acceptable
-      ;; degree of tradeoffs. 🤷
-      (let* ((text-size (if (member 'visual-line-mode continuation)
-                            (cons (* scale (car text-pixel-size))
-                                  (* scale (cdr text-pixel-size)))
-                          (moc--text-pixel-size (selected-window) continuation)))
+      (let* ((text-size (moc--focus-text-pixel-size
+                         (selected-window) continuation scale))
              (margin-left (max 1 (floor (/ (- w (car text-size)) 2.0))))
              (margin-top (max 1.0 (/ (- h (cdr text-size)) 2.0)))
              (margin-lines (/ margin-top (frame-char-height))))
