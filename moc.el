@@ -1274,7 +1274,7 @@ newlines."
     (goto-char (point-min))
     (moc--focus-forward-whitespace (point-max) t)
     (unless (eolp)
-      (end-of-line))
+      (goto-char (line-beginning-position)))
     (delete-region (point-min) (point))
     (goto-char (point-max))
     (moc--focus-backward-whitespace (point-min) t)
@@ -1284,8 +1284,8 @@ newlines."
 
     (goto-char (point-min))
     (let ((indent-column (current-indentation)))
-      (while (not (eobp))
-        (beginning-of-line)
+      (while (< (point) (point-max))
+        (goto-char (line-beginning-position))
         ;; use lower indentation if encountered, unless line is empty whitespace
         (unless (looking-at-p "^[[:space:]]*$")
           (when (< (current-indentation) indent-column)
@@ -1296,7 +1296,7 @@ newlines."
       (while (not (eobp))
         (move-to-column indent-column)
         (delete-region (line-beginning-position) (point))
-        (end-of-line)
+        (goto-char (line-end-position))
         (moc--focus-backward-whitespace (line-beginning-position) nil)
         (delete-region (point) (line-end-position))
         (forward-line)))
@@ -1444,7 +1444,7 @@ ARGS contains the following keys:
              (user-error "Cannot process the processing buffer: %s"
                          (buffer-name)))
            (goto-char beg)
-           (beginning-of-line)
+           (goto-char (line-beginning-position))
            (setq before (point))
            (copy-to-buffer buffer beg end)
 
