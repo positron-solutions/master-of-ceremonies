@@ -183,6 +183,7 @@ Structure is a list of (BEG END . PROPS) where PROPS comes from
 (defvar-local moc--focus-invisibilty-spec nil
   "The invisibility spec from the source.
 Same structure as valid values for `buffer-invisibility-spec'.")
+(defvar-local moc--focus-continuation nil "Line continuation strategy.")
 (defvar-local moc--focus-overlays nil
   "Overlays applied from `moc--focus-overlay-specs'.")
 (defvar-local moc--focus-scale-overlay nil
@@ -818,6 +819,7 @@ another window will likely leave something to be desired."
     (set-face-attribute 'fringe (selected-frame) :background 'unspecified)
     (setq buffer-invisibility-spec invisibility-spec)
     (setq moc--focus-invisibilty-spec invisibility-spec)
+    (setq moc--focus-continuation continuation)
     (setq moc--focus-old-subtle-cursor moc-subtle-cursor-mode)
     (moc-hide-cursor-mode 1)
     (setq moc--focus-old-quiet moc-quiet-mode)
@@ -1178,11 +1180,13 @@ The shadow face will be added to the region between BEG and END."
   (moc--focus-assert-mode)
   (let ((expression
          `(moc-focus
-           :overlays ',moc--focus-overlay-specs
-           :invisibility-spec ',moc--focus-invisibilty-spec
-           :string ,moc--focus-cleaned-text
+           :version ,moc-focus-playback-version
+           :continuation ',moc--focus-continuation
            :highlights ',moc--focus-highlights
-           :occludes ',moc--focus-occludes)))
+           :occludes ',moc--focus-occludes
+           :invisibility-spec ',moc--focus-invisibilty-spec
+           :overlays ',moc--focus-overlay-specs
+           :text ,moc--focus-cleaned-text)))
     (kill-new (prin1-to-string expression)))
   (message "saved focus to kill ring."))
 
