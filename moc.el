@@ -776,10 +776,8 @@ into Emacs text flow logic in the first place."
     (set-window-margins window
                         (max 0 (- (window-width)
                                   (ceiling (* fill-column scale)))))
-    ;; TODO even without adaptive fill, this is pretty close
     (prog1 (window-text-pixel-size window)
-      (set-window-margins window nil)
-      (visual-fill-column-mode -1)))
+      (set-window-margins window nil)))
    (t (window-text-pixel-size window))))
 
 (defun moc-focus-playback (&rest args)
@@ -889,9 +887,13 @@ another window will likely leave something to be desired."
                  (setq moc--focus-margin-right margin-cols))
                (visual-line-mode 1)
                (when (member 'adaptive-wrap-prefix-mode continuation)
-                 (adaptive-wrap-prefix-mode 1))
+                 (if (require 'visual-wrap nil t)
+                     (visual-wrap-prefix-mode 1)
+                   (when (fboundp 'adaptive-wrap-prefix-mode)
+                     (adaptive-wrap-prefix-mode 1))))
                (when (member 'visual-wrap-prefix-mode continuation)
-                 (visual-wrap-prefix-mode 1)))
+                 (when (require 'visual-wrap nil t)
+                   (visual-wrap-prefix-mode 1))))
               (t
                (let ((margin-cols (1- (floor (/ margin-left
                                                 (frame-char-width))))))
