@@ -6,7 +6,16 @@
 #+export_file_name: RELEASE.md
 #+options: toc:nil broken-links:nil num:nil
 
-* v0.6.0 Versioned Playback 📽️ :latest:
+* V0.6.1 Stabilizing 🤡 :latest:
+We are beginning to tag releases.  It's almost ready.  It should be ready, but in case it is not, don't /just/ blame me.  File issues.
+** Added 🦙
+- ~moc-frame-text-scale-mode~ and related commands
+  + Only scales the default face size attribute in the selected frame
+  + Also added to ~moc-dispatch~
+** Fixed
+- Playback bug in the version check
+- Bug in text scaling in ~moc-dispatch~
+* v0.6.0 Versioned Playback 📽️
 The big story for this version is to re-implement the excerpt processing.  The changes enable visual lines and playback to integrate much more smoothly.
 
 The implementation chosen uses a temporary buffer and Emacs text editing functions, building on top of Emacs text processing awareness.  As Emacs grows smarter, so will MoC.
