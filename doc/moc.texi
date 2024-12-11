@@ -749,7 +749,7 @@ Public License instead of this License.  But first@comma{} please read
 @finalout
 @titlepage
 @title 
-@subtitle for version 0.6.0
+@subtitle for version 0.6.1
 @author Positron Solutions
 @page
 @vskip 0pt plus 1filll
@@ -769,6 +769,7 @@ title: Master of Ceremonies
 * Introduction::                 Present Like a Master
 * Authoring 🖋️::                  Make Content
 * Presenting 🎛️::                 Setting Up To Show Off
+* Customizing ✨::
 * Contributing 🍔::              Give me hamburgers
 
 @detailmenu
@@ -779,6 +780,11 @@ Authoring 🖋️
 * Live Presentation 🎬::         Creation is Demonstration
 * Persisted Playback ▶️::         Saving as Elisp
 * Saving Screenshots 📸::        Making Images
+
+Customizing ✨
+
+* Finding the Address::
+* Adding a Group::
 
 Contributing 🍔
 
@@ -869,45 +875,28 @@ Copy this expression wherever appropriate@comma{} such as the body of a babel bl
 
 It is of great convenience if the files are saved in the correct place.  Configure @code{moc-screenshot-dir} to be a function that calculates the correct location based on your current project directory.
 
-Here's an example that employs a variety of techniques to calculate and persist the user's choice@comma{} per-buffer@comma{} of where to save screenshots.
+Here's an example that calculates where to save screenshots based on the project directory.
 
-@code{moc-focus-base-buffer} exists when the current buffer is an @samp{MoC Focus} buffer and
+@code{moc-focus-base-buffer} is bound to a source buffer when the current buffer is an @samp{MoC Focus} buffer.  You can use this value to decided based on the source buffer.
 @lisp
 ;; Add this to your use-package :config section
-(defun my-screenshots-dir ()
+ (defun my-screenshots-dir ()
   (interactive)
-  (let ((dir (or (and moc-focus-base-buffer
-                      (buffer-local-boundp
-                       'moc--screenshot-dir moc-focus-base-buffer
-                       (buffer-local-value
-                        'moc--screenshot-dir moc-focus-base-buffer)))
-                 (expand-file-name
-                  "screenshots/"
-                  (or (when-let ((p (project-current))) (project-root p))
-                      (temporary-file-directory))))))
-
-    ;; Use the current path if we happen to be in the YouTube directory
-
-    ;; Creating directories can signal an error.  That's a good time to ask the
-    ;; user for a fallback directory.
-    (condition-case nil
-        (unless (file-exists-p dir)
-          (make-directory dir t))
-      (error (let ((fallback (read-directory-name
-                              "screenshot directory: ")))
-               (setq dir fallback))))
-
-    ;; Persist this choice buffer locally@comma{} using whatever buffer MoC was invoked
-    ;; from if we're in an MoC buffer.
-    (when moc-focus-base-buffer (set-buffer moc-focus-base-buffer))
-    (setq-local moc--screenshot-dir dir)))
+  ;; When taking screenshots from a focus buffer@comma{} it sets
+  ;; `moc-focus-base-buffer' so that you can decide based on the base
+  ;; buffer@comma{} not the focus buffer@comma{} which has no associated file.
+  (with-current-buffer (or moc-focus-base-buffer
+                           (current-buffer))
+    (expand-file-name
+     "screenshots/"
+     (or (when-let ((p (project-current))) (project-root p))
+         (temporary-file-directory)))))
 
 ;; configure the function to be called to calculate the correct options at
 ;; runtime
 (setopt moc-screenshot-dir #'my-screenshots-dir)
 
 @end lisp
-
 Now just configure the save type@comma{} @code{moc-screenshot-type}@comma{} which uses the same types as supported by @code{x-export-frames}.
 
 @node Presenting 🎛️
@@ -938,6 +927,61 @@ Controls for @code{default-text-scale-mode} and @code{text-scale-mode}
 
 🚧 It is planned to add for convenience@comma{} extra groups to this interface using @ref{Top,transient,,transient,} support for menu modification.  Transient supports this@comma{} so knock
 yourself out.  PR's welcome.
+
+@node Customizing ✨
+@chapter Customizing ✨
+
+You can start with the normal configuration of @code{defcustom} variables and hooks.  That's easy mode.
+
+It's impossible for menus like @code{moc-dispatch} to support every package that every user installs.  Instead@comma{} you can add a custom transient group or suffix to @code{moc-dispatch} for your use case.
+
+It is recommended to read the Transient manual section on @ref{Modifying Existing Transients,Modifying Existing Transients,,transient,}.  You may also want to see the @uref{https://github.com/positron-solutions/transient-showcase?tab=readme-ov-file#Groups-&-Layouts, Transient Showcase} section on layouts to understand how vectors are used to define groups.  This sheds light on how coordinates work.
+
+@menu
+* Finding the Address::
+* Adding a Group::
+@end menu
+
+@node Finding the Address
+@section Finding the Address
+
+We are eventually going to call functions like @code{transient-replace-suffix}@comma{} but first depending on the change you want to make@comma{} such as inserting an extra command or replacing a group@comma{} you will need to know how to properly target the location.
+
+Transient layouts can have nested groups.  To make things easy@comma{} you can use @code{transient-get-suffix} to @emph{interrogate} the existing prefix.
+
+@lisp
+(transient-get-suffix 'moc-dispatch '(1)) ; Fixed Frame group
+
+(transient-get-suffix 'moc-dispatch '(0 1)) ; Buffer Text Scale group
+
+(transient-get-suffix 'moc-dispatch "m") ; hide (mode line)
+@end lisp
+
+@itemize
+@item
+When adding a command around an existing command or replacing that command@comma{} it is sufficient to use its key as an address.  The @samp{m} key can be used as an address to replace
+@end itemize
+
+@node Adding a Group
+@section Adding a Group
+
+The functions @code{transient-insert-suffix} and @code{transient-append-suffix} etc accept prefix symbol@comma{} such as @samp{moc-dispatch} or @samp{moc-focus-dispatch}@comma{} an address (found in previous section) and a group or suffix@comma{} just as it would be written for use in @code{transient-define-prefix}.
+
+Here's an example of defining a new group for spell-checking.  It has one command@comma{} @samp{global-jinx-mode}.  The command will be bound to @samp{j}.  It uses the @code{my-jinx-desc} function to generate a description.  This will update the description to show us the current state.
+@lisp
+(defun my-jinx-desc ()
+  "Describe jinx mode state."
+  (format "jinx: %s" (if global-jinx-mode
+                         (propertize "on" 'face 'success)
+                       (propertize "off" 'face 'transient-value))))
+
+(transient-append-suffix 'moc-dispatch '(3 2)
+    ["Spelling"
+     ("j" global-jinx-mode :description my-jinx-desc :transient t)])
+@end lisp
+If you mess something up and get into an inconsistent state@comma{} you can reload the prefix to obtain a fresh copy and proceed to try again.  Just evaluate the definition of @code{moc-dispatch} again.
+
+If you changed @code{moc-focus-dispatch}@comma{} now you just need to finish up by adding any new keys to @code{moc-focus-mode-map}.
 
 @node Contributing 🍔
 @chapter Contributing 🍔

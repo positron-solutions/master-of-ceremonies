@@ -70,45 +70,28 @@ Copy this expression wherever appropriate, such as the body of a babel block con
 :END:
 It is of great convenience if the files are saved in the correct place.  Configure ~moc-screenshot-dir~ to be a function that calculates the correct location based on your current project directory.
 
-Here's an example that employs a variety of techniques to calculate and persist the user's choice, per-buffer, of where to save screenshots.
+Here's an example that calculates where to save screenshots based on the project directory.
 
-~moc-focus-base-buffer~ exists when the current buffer is an =MoC Focus= buffer and
+~moc-focus-base-buffer~ is bound to a source buffer when the current buffer is an =MoC Focus= buffer.  You can use this value to decided based on the source buffer.
 #+begin_src elisp
   ;; Add this to your use-package :config section
-  (defun my-screenshots-dir ()
+   (defun my-screenshots-dir ()
     (interactive)
-    (let ((dir (or (and moc-focus-base-buffer
-                        (buffer-local-boundp
-                         'moc--screenshot-dir moc-focus-base-buffer
-                         (buffer-local-value
-                          'moc--screenshot-dir moc-focus-base-buffer)))
-                   (expand-file-name
-                    "screenshots/"
-                    (or (when-let ((p (project-current))) (project-root p))
-                        (temporary-file-directory))))))
-
-      ;; Use the current path if we happen to be in the YouTube directory
-
-      ;; Creating directories can signal an error.  That's a good time to ask the
-      ;; user for a fallback directory.
-      (condition-case nil
-          (unless (file-exists-p dir)
-            (make-directory dir t))
-        (error (let ((fallback (read-directory-name
-                                "screenshot directory: ")))
-                 (setq dir fallback))))
-
-      ;; Persist this choice buffer locally, using whatever buffer MoC was invoked
-      ;; from if we're in an MoC buffer.
-      (when moc-focus-base-buffer (set-buffer moc-focus-base-buffer))
-      (setq-local moc--screenshot-dir dir)))
+    ;; When taking screenshots from a focus buffer, it sets
+    ;; `moc-focus-base-buffer' so that you can decide based on the base
+    ;; buffer, not the focus buffer, which has no associated file.
+    (with-current-buffer (or moc-focus-base-buffer
+                             (current-buffer))
+      (expand-file-name
+       "screenshots/"
+       (or (when-let ((p (project-current))) (project-root p))
+           (temporary-file-directory)))))
 
   ;; configure the function to be called to calculate the correct options at
   ;; runtime
   (setopt moc-screenshot-dir #'my-screenshots-dir)
 
 #+end_src
-
 Now just configure the save type, ~moc-screenshot-type~, which uses the same types as supported by ~x-export-frames~.
 * Presenting 🎛️
 :PROPERTIES:
@@ -129,6 +112,44 @@ It is recommended to bind the ~moc-dispatch~ interface to a key.  This interface
 
 🚧 It is planned to add for convenience, extra groups to this interface using [[info:transient#Top][transient]] support for menu modification.  Transient supports this, so knock
 yourself out.  PR's welcome.
+* Customizing ✨
+You can start with the normal configuration of ~defcustom~ variables and hooks.  That's easy mode.
+
+It's impossible for menus like ~moc-dispatch~ to support every package that every user installs.  Instead, you can add a custom transient group or suffix to ~moc-dispatch~ for your use case.
+
+It is recommended to read the Transient manual section on [[info:transient#Modifying Existing Transients][Modifying Existing Transients]].  You may also want to see the [[https://github.com/positron-solutions/transient-showcase?tab=readme-ov-file#Groups-&-Layouts][Transient Showcase]] section on layouts to understand how vectors are used to define groups.  This sheds light on how coordinates work.
+** Finding the Address
+We are eventually going to call functions like ~transient-replace-suffix~, but first depending on the change you want to make, such as inserting an extra command or replacing a group, you will need to know how to properly target the location.
+
+Transient layouts can have nested groups.  To make things easy, you can use ~transient-get-suffix~ to /interrogate/ the existing prefix.
+
+#+begin_src elisp
+  (transient-get-suffix 'moc-dispatch '(1)) ; Fixed Frame group
+
+  (transient-get-suffix 'moc-dispatch '(0 1)) ; Buffer Text Scale group
+
+  (transient-get-suffix 'moc-dispatch "m") ; hide (mode line)
+#+end_src
+
+- When adding a command around an existing command or replacing that command, it is sufficient to use its key as an address.  The =m= key can be used as an address to replace
+** Adding a Group
+The functions ~transient-insert-suffix~ and ~transient-append-suffix~ etc accept prefix symbol, such as =moc-dispatch= or =moc-focus-dispatch=, an address (found in previous section) and a group or suffix, just as it would be written for use in ~transient-define-prefix~.
+
+Here's an example of defining a new group for spell-checking.  It has one command, =global-jinx-mode=.  The command will be bound to =j=.  It uses the ~my-jinx-desc~ function to generate a description.  This will update the description to show us the current state.
+#+begin_src elisp
+  (defun my-jinx-desc ()
+    "Describe jinx mode state."
+    (format "jinx: %s" (if global-jinx-mode
+                           (propertize "on" 'face 'success)
+                         (propertize "off" 'face 'transient-value))))
+
+  (transient-append-suffix 'moc-dispatch '(3 2)
+      ["Spelling"
+       ("j" global-jinx-mode :description my-jinx-desc :transient t)])
+#+end_src
+If you mess something up and get into an inconsistent state, you can reload the prefix to obtain a fresh copy and proceed to try again.  Just evaluate the definition of ~moc-dispatch~ again.
+
+If you changed ~moc-focus-dispatch~, now you just need to finish up by adding any new keys to ~moc-focus-mode-map~.
 * Contributing 🍔
 :PROPERTIES:
 :DESCRIPTION: Give me hamburgers

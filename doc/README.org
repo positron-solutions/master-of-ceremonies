@@ -45,4 +45,5 @@ Subscribe to [[https://www.youtube.com/@Positron-gv7do][Positron's YouTube chann
 
 #+include: "manual.org::*Authoring 🖋️" :minlevel 1
 #+include: "manual.org::*Presenting 🎛️" :minlevel 1
+#+include: "manual.org::*Customizing ✨" :minlevel 1
 #+include: "manual.org::*Contributing 🍔" :minlevel 1
