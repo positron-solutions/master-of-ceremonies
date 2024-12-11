@@ -781,8 +781,8 @@ with MoC commands and to make many adjustments at once."
     (:info #'moc--dispatch-text-scale)
     ("t+" "increase" text-scale-increase :transient t)
     ("t-" "decrease" text-scale-decrease :transient t)
-    ("t=" "reset" text-scale-mode :transient transient--do-call
-     :inapt-if-non-nil text-scale-mode)]]
+    ("t=" "reset" text-scale-mode :transient t
+     :inapt-if-nil text-scale-mode)]]
   ["Fixed Frame"
    (:info #'moc--dispatch-frame-size)
    ("s" "set" moc-fixed-frame-set :transient t)
