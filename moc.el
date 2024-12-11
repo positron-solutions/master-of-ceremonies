@@ -154,6 +154,13 @@ forms understood by `face-remap-add-relative'.
 \\[info] elisp::Face Remapping"
   :type 'alist)
 
+(defcustom moc-frame-text-scale-step 1.05
+  "The factor of increase or decrease.
+Because this is applied via `expt' and the steps are tracked, you can
+return to the original sized text and not some noise-accumulating silly
+value."
+  :type 'float)
+
 (defvar moc--quiet-old-inhibit-message nil)
 
 ;; TODO naming consistency
@@ -276,6 +283,118 @@ KEEP-EXISTING"
       (setq-local cursor-type nil)))
    (t
     (setq-local cursor-type (default-value 'cursor-type)))))
+
+;; * Frame Text Scale Mode
+
+(define-minor-mode moc-frame-text-scale-mode
+  "Scale the default font for a given frame.
+When frames have had their text scale set, activating this mode recovers that
+scale and deactivating it resets their original scale.
+
+This mode is not aware of other mechanisms of tracking the frame's text
+scale and conflicting modes will clobber each other."
+  :group 'moc
+  :global t
+  (cond
+   (moc-frame-text-scale-mode
+    (cl-loop
+     for f in (frame-list)
+     do (when-let ((step (frame-parameter f 'moc--frame-text-scale)))
+          (let* ((orig (or (frame-parameter f 'moc--frame-text-scale-orig)
+                           (face-attribute 'default :height f))))
+            (set-face-attribute
+             'default f :height
+             (round (* orig (expt moc-frame-text-scale-step step))))))))
+   (t
+    (cl-loop
+     for f in (frame-list)
+     do (when-let ((orig (frame-parameter f 'moc--frame-text-scale-orig)))
+          (set-face-attribute 'default f :height orig))))))
+
+(defun moc--frame-text-scale-cleanup-when-done ()
+  "Self-explanatory.
+If no frames have a non-zero step value, turn off the mode."
+  (unless (cl-loop
+           for f in (frame-list)
+           when (when-let ((step (frame-parameter f 'moc--frame-text-scale)))
+                  (not (= 0 step)))
+           return f)
+    (moc-frame-text-scale-mode -1)))
+
+(defun moc-frame-text-scale-increase ()
+  "Increase the frame text scale."
+  (interactive)
+  (unless moc-frame-text-scale-mode
+    (moc-frame-text-scale-mode 1))
+  (let* ((frame (selected-frame))
+         (orig (or (frame-parameter frame 'moc--frame-text-scale-orig)
+                   (face-attribute 'default :height frame)))
+         (step (1+ (or (frame-parameter frame 'moc--frame-text-scale)
+                       0)))
+         (new (round (* orig (expt moc-frame-text-scale-step step)))))
+    (set-frame-parameter frame 'moc--frame-text-scale step)
+    (set-face-attribute 'default frame :height new)
+    (unless (frame-parameter frame 'moc--frame-text-scale-orig)
+      (set-frame-parameter frame 'moc--frame-text-scale-orig orig))
+    (when (= step 0)
+      (moc--frame-text-scale-cleanup-when-done))))
+
+(defun moc-frame-text-scale-decrease ()
+  "Decrease the frame text scale."
+  (interactive)
+  (unless moc-frame-text-scale-mode
+    (moc-frame-text-scale-mode 1))
+  (let* ((frame (selected-frame))
+         (orig (or (frame-parameter frame 'moc--frame-text-scale-orig)
+                   (face-attribute 'default :height frame)))
+         (step (1- (or (frame-parameter frame 'moc--frame-text-scale)
+                       0)))
+         (new (round (* orig (expt moc-frame-text-scale-step step)))))
+    (set-frame-parameter frame 'moc--frame-text-scale step)
+    (set-face-attribute 'default frame :height new)
+    (unless (frame-parameter frame 'moc--frame-text-scale-orig)
+      (set-frame-parameter frame 'moc--frame-text-scale-orig orig))
+    (when (= step 0)
+      (moc--frame-text-scale-cleanup-when-done))))
+
+(defun moc-frame-text-scale-set (steps)
+  "Set a specific number of STEPS.
+Tired of trying to +/- it right?  Set a specific value with this
+command.  STEPS can be 0 for no height or positive or negative integers.
+The result is identical to increasing or decreasing STEPS times."
+  (interactive
+   (let ((current-step
+          (or 0 (frame-parameter frame 'moc--frame-text-steps))))
+     (list (moc--read-N "New height steps: " current-step))))
+  (unless moc-frame-text-scale-mode
+    (moc-frame-text-scale-mode 1))
+  (let* ((frame (selected-frame))
+         (orig (or (frame-parameter frame 'moc--frame-text-scale-orig)
+                   (face-attribute 'default :height frame)))
+         (height (round (* orig (expt moc-frame-text-scale-step steps)))))
+    (set-face-attribute 'default frame :height height)
+    (set-frame-parameter frame 'moc--frame-text-scale steps)
+    (unless (frame-parameter frame 'moc--frame-text-scale-orig)
+      (set-frame-parameter frame 'moc--frame-text-scale-orig orig))
+    (when (= steps 0)
+      (moc--frame-text-scale-cleanup-when-done))))
+
+(defun moc-frame-text-scale-reset ()
+  "Set the current frame back to its original text scale."
+  (interactive)
+  (moc-frame-text-scale-set 0))
+
+;; Really wish this was an interactive short code...
+(defun moc--read-N (prompt &optional initial)
+  "Read an integer, including zero and negative numbers.
+PROMPT will be used as a prompt.  INITIAL is an initial value.
+Shocking."
+  (let ((str (read-from-minibuffer
+              prompt
+              (when initial (number-to-string initial)) nil nil nil)))
+    (if (string-match-p "^-?[0-9]*$" str)
+        (string-to-number str)
+      (user-error "Could not read number: %s" str))))
 
 ;; * Subtle Cursor Mode
 
@@ -619,6 +738,18 @@ Use in suffix command."
          (propertize (format "remaps %-4d" remaps) 'face 'success)
        ""))))
 
+(defun moc--dispatch-frame-text-scale ()
+  "Return current frame text scale for info class."
+  (if-let ((step (frame-parameter (selected-frame) 'moc--frame-text-scale)))
+      (propertize (format "frame scale: %s" step)
+                  'face 'transient-value)
+    (propertize "off" 'face 'shadow)))
+
+(defun moc--dispatch-frame-text-scale-p ()
+  "Return if current frame has a non-zero text scale."
+  (when-let ((step (frame-parameter (selected-frame) 'moc--frame-text-scale)))
+    (not (eq 0 step))))
+
 (defun moc--dispatch-text-scale ()
   "Return current text scale for info class."
   (if text-scale-mode
@@ -640,7 +771,13 @@ Use in suffix command."
 This is likely the command you want to bind globally to become familiar
 with MoC commands and to make many adjustments at once."
   :refresh-suffixes t
-  [["Buffer Text Scale"
+  [["Frame Text Scale"
+    (:info #'moc--dispatch-frame-text-scale)
+    ("+" "increase" moc-frame-text-scale-increase :transient t)
+    ("-" "decrease" moc-frame-text-scale-decrease :transient t)
+    ("=" "reset" moc-frame-text-scale-reset :transient t
+     :inapt-if-not moc--dispatch-frame-text-scale-p)]
+   ["Buffer Text Scale"
     (:info #'moc--dispatch-text-scale)
     ("t+" "increase" text-scale-increase :transient t)
     ("t-" "decrease" text-scale-decrease :transient t)
