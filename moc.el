@@ -273,7 +273,7 @@ KEEP-EXISTING"
 
 (define-minor-mode moc-hide-cursor-mode
   "Make cursor completely hidden."
-  :group 'master-of-ceremonies
+  :group 'moc
   (cond
    (moc-hide-cursor-mode
     (if (minibufferp)
@@ -522,7 +522,7 @@ found active.
   "Inhibit messages in the echo area.
 ⚠️ Inhibiting messages is a bit dangerous.  If anything fails, because messages
 are disabled, there may be no obvious user feedback ☠️"
-  :group 'master-of-ceremonies
+  :group 'moc
   :global t
   (cond
    (moc-quiet-mode
