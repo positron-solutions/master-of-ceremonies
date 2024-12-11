@@ -1538,9 +1538,11 @@ We don't know the right screen aspect ratio until display time."
     (unless (and serialization-version
                  (= serialization-version moc-focus-playback-version))
       (display-warning '(moc moc-focus moc-focus-playback)
-                       "Non-matching serialization and playback versions %d %d"
-                       serialization-version
-                       moc-focus-playback-version))))
+                       (format "Non-matching serialization and playback versions.  \
+Found: %s  Required:  %s"
+                               serialization-version
+                               moc-focus-playback-version)
+                       :warning))))
 
 ;;;###autoload
 (defun moc-focus (&rest args)
