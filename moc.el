@@ -1699,7 +1699,6 @@ Used in suffix."
 (put 'moc-focus-dispatch 'mode 'moc-focus-mode)
 
 (defvar-keymap moc-focus-mode-map
-  :suppress 'nodigits
   "." #'moc--focus-cursor-toggle
   "c" #'moc-face-remap-clear
   "e" #'moc-quiet-mode
