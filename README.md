@@ -142,12 +142,39 @@ It is recommended to bind the `moc-dispatch` interface to a key. This interface 
 
 You can start with the normal configuration of `defcustom` variables and hooks. That's easy mode.
 
+
+## Face Remapping
+
+Add new presets to `moc-face-remap-presets`. It is an alist of alists. Each element is `(NAME . PRESET)`. Each `PRESET` is `(FACE . SPECS)`. `SPECS` will be used by `face-remap-add-releative` and is just a plist of face attributes.
+
+You need an arbitrary symbol that names your preset, such as `box-land`. If you wanted to remap the default face to always have the `:box` attribute turned on, do something like this:
+
+```elisp
+;; Add a new preset
+(push '(puke-land . ((default . (:background "#004400"))))
+      moc-face-remap-presets)
+
+;; activate from an Elisp program
+(moc-face-remap 'puke-land)
+
+;; turn off all remaps
+(moc-face-remap-clear)
+
+;; To remove a badly configured preset
+(setq moc-face-remap-presets (assq-delete-all 'puke-land moc-face-remap-presets))
+```
+
+When using `moc-focus`, you likely want to configure some remaps. You can do this manually using the `moc-focus-mode-hook` or by adding your remap to `moc-focus-default-remaps`. Both approaches are equivalent.
+
+
+## Updating Transient Menus
+
 It's impossible for menus like `moc-dispatch` to support every package that every user installs. Instead, you can add a custom transient group or suffix to `moc-dispatch` for your use case.
 
 It is recommended to read the Transient manual section on [Modifying Existing Transients](info:transient#Modifying Existing Transients). You may also want to see the [Transient Showcase](https://github.com/positron-solutions/transient-showcase?tab=readme-ov-file#Groups-&-Layouts) section on layouts to understand how vectors are used to define groups. This sheds light on how coordinates work.
 
 
-## Finding the Address
+### Finding the Address
 
 We are eventually going to call functions like `transient-replace-suffix`, but first depending on the change you want to make, such as inserting an extra command or replacing a group, you will need to know how to properly target the location.
 
@@ -164,7 +191,7 @@ Transient layouts can have nested groups. To make things easy, you can use `tran
 -   When adding a command around an existing command or replacing that command, it is sufficient to use its key as an address. The `m` key can be used as an address to replace
 
 
-## Adding a Group
+### Adding a Group
 
 The functions `transient-insert-suffix` and `transient-append-suffix` etc accept prefix symbol, such as `moc-dispatch` or `moc-focus-dispatch`, an address (found in previous section) and a group or suffix, just as it would be written for use in `transient-define-prefix`.
 
