@@ -475,7 +475,7 @@ cursor when the user is not moving the point.
 \\[info] elisp::Cursor Parameters.
 
 When you do anything to move the cursor, it will remain visible for the
-product of `moc-subtle-cursor-blinks' and `moc-subtle-cursor-duration'.
+product of `moc-subtle-cursor-blinks' and `moc-subtle-cursor-interval'.
 
 Because this mode conflicts with `blink-cursor-mode', it is turned off when
 found active.
