@@ -4,7 +4,7 @@
 
 ;; Author: Positron Solutions <contact@positron.solutions>
 ;; Keywords: convenience, outline
-;; Version: 0.6.1
+;; Version: 0.6.2
 ;; Package-Requires: ((emacs "29.4") (hide-mode-line "1.0.3") (transient "0.7.2"))
 ;; Homepage: http://github.com/positron-solutions/moc
 
@@ -1028,14 +1028,20 @@ another window will likely leave something to be desired."
                  (setq moc--focus-margin-left margin-cols)
                  (setq moc--focus-margin-right margin-cols))
                (visual-line-mode 1)
-               (when (member 'adaptive-wrap-prefix-mode continuation)
-                 (if (require 'visual-wrap nil t)
-                     (visual-wrap-prefix-mode 1)
-                   (when (fboundp 'adaptive-wrap-prefix-mode)
-                     (adaptive-wrap-prefix-mode 1))))
-               (when (member 'visual-wrap-prefix-mode continuation)
+               (when (seq-intersection continuation '(visual-wrap-prefix-mode
+                                                      adaptive-wrap-prefix-mode))
                  (when (require 'visual-wrap nil t)
-                   (visual-wrap-prefix-mode 1))))
+                   (cond ((fboundp 'visual-wrap-prefix-mode)
+                          (visual-wrap-prefix-mode 1))
+                         ((fboundp 'adaptive-wrap-prefix-mode)
+                          (adaptive-wrap-prefix-mode 1))
+                         (t
+                          (display-warning
+                           '(moc moc-focus moc-focus-visual)
+                           (format
+                            "Could not activate all continuations: %s"
+                            continuation)
+                           :warning))))))
               (t
                (let ((margin-cols (1- (floor (/ margin-left
                                                 (frame-char-width))))))

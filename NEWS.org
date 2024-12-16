@@ -4,9 +4,11 @@
 
 #+select_tags: latest
 #+export_file_name: RELEASE.md
-#+options: toc:nil broken-links:nil num:nil
 
-* V0.6.1 Stabilizing 🤡 :latest:
+* v0.6.2 Insecticide 🐛 :latest:
+- Better checks for ~visual-wrap-prefix-mode~
+- Avoid warnings for faces
+* v0.6.1 Stabilizing 🤡
 We are beginning to tag releases.  It's almost ready.  It should be ready, but in case it is not, don't /just/ blame me.  File issues.
 ** Added 🦙
 - ~moc-frame-text-scale-mode~ and related commands
