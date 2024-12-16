@@ -286,6 +286,7 @@ KEEP-EXISTING"
 
 ;; * Frame Text Scale Mode
 
+;;;###autoload
 (define-minor-mode moc-frame-text-scale-mode
   "Scale the default font for a given frame.
 When frames have had their text scale set, activating this mode recovers that
