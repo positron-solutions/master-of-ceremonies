@@ -1556,25 +1556,31 @@ Found: %s  Required:  %s"
   "Focus selected region.
 ARGS contains the following keys:
 
-- :continuation 🚧 This option is experimental.  Right now it contains enough
-  information for the downstream `mc-focus-playback' to decide a continuation
-  strategy and to
+- :continuation 🚧 This option is experimental.  Right now it contains
+  enough information for the downstream `mc-focus-playback' to decide a
+  continuation strategy and to
+
 - :overlays is a list of (BEG END . PROPS) where PROPS is returned by
-  `overlay-properties'.  Each element of the list is used to rehydrate an
-  overlay to recreate the capture source.
+  `overlay-properties'.  Each element of the list is used to rehydrate
+  an overlay to recreate the capture source.
+
 - :invisibility-spec propagates the buffer's invisibility spec
+
 - :highlights a list of conses of BEG END that will be highlighted
+
 - :occludes a list of conses of BEG END that will be occluded
+
 - :text The text to be displayed.
-- :version Serialization and playback are coupled.  When versions don't match
-  or are missing, a warning will be displayed."
+
+- :version Serialization and playback are coupled.  When versions don't
+  match or are missing, a warning will be displayed."
   (interactive
    (if (region-active-p)
        (save-excursion
          (when-let ((old (get-buffer " *MoC Processing")))
            (display-warning '(mc mc-focus mc-focus-playback)
-                            (format  "Killing stale processing buffer %s"
-                                     " *MoC Processing")
+                            (format  "Killing stale processing buffer %S"
+                                     " *MoC Processing*")
                             :warning))
          (let* ((buffer (get-buffer-create " *MoC Processing*"))
                 (rect (when rectangle-mark-mode
@@ -1583,8 +1589,8 @@ ARGS contains the following keys:
                 (beg (region-beginning))
                 (end (region-end))
                 before)
-           (when (string= (buffer-name) " *MoC Processing*")
-             (user-error "Cannot process the processing buffer: %s"
+           (when (string= (buffer-name) " *MoC Processing")
+             (user-error "Cannot process the processing buffer: %S"
                          (buffer-name)))
            (goto-char beg)
            (beginning-of-line)
