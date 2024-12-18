@@ -1408,7 +1408,8 @@ newlines."
 
 (defun moc--focus-trim-whitespace (buffer)
   "Clean unwanted whitespace in BUFFER."
-  (let ((old (current-buffer)))
+  (let ((old (current-buffer))
+        (inhibit-field-text-motion t))
     (set-buffer buffer)
     (setq buffer-invisibility-spec nil)
     ;; Trim whitespace lines at beginning and end
