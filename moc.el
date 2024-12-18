@@ -1578,7 +1578,8 @@ ARGS contains the following keys:
   (interactive
    (if (region-active-p)
        (save-excursion
-         (when-let ((old (get-buffer " *MoC Processing")))
+         (when-let ((old (get-buffer " *MoC Processing*")))
+           (kill-buffer old)
            (display-warning '(mc mc-focus mc-focus-playback)
                             (format  "Killing stale processing buffer %S"
                                      " *MoC Processing*")
@@ -1590,7 +1591,7 @@ ARGS contains the following keys:
                 (beg (region-beginning))
                 (end (region-end))
                 before)
-           (when (string= (buffer-name) " *MoC Processing")
+           (when (string= (buffer-name) " *MoC Processing*")
              (user-error "Cannot process the processing buffer: %S"
                          (buffer-name)))
            (goto-char beg)
